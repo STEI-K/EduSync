@@ -3,11 +3,69 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  /* COLOR */
+  --color-blue-base: #466BFF;
+  --color-blue-10: #DAE1FF;
+  --color-blue-20: #C1CEFF;
+  --color-blue-30: #A2B5FF;
+  --color-blue-40: #849CFF;
+  --color-blue-50: #6584FF;
+  --color-blue-60: #3A59D4;
+  --color-blue-70: #2F47AA;
+  --color-blue-80: #233680;
+  --color-blue-90: #172455;
+  --color-blue-100: #0E1533;
+
+  --color-yellow-base: #FFE133;
+  --color-yellow-10: #FFF9D6;
+  --color-yellow-20: #FFF5BB;
+  --color-yellow-30: #FFF099;
+  --color-yellow-40: #FFEB77;
+  --color-yellow-50: #FFE655;
+  --color-yellow-60: #D4BB2B;
+  --color-yellow-70: #AA9622;
+  --color-yellow-80: #80711A;
+  --color-yellow-90: #554B11;
+  --color-yellow-100: #332D0A;
+
+  /* FONT */
+  --text-h1: 60px;
+  --text-h2: 48px;
+  --text-h3: 36px;
+  --text-h4: 30px;
+  --text-h5: 24px;
+  --text-h6: 20px;
+  --text-h7: 16px;
+  --text-h8: 14px;
+  --text-h9: 12px;
+
+  --text-sh1: 60px;
+  --text-sh2: 48px;
+  --text-sh3: 36px;
+  --text-sh4: 30px;
+  --text-sh5: 24px;
+  --text-sh6: 20px;
+  --text-sh7: 16px;
+  --text-sh8: 14px;
+  --text-sh9: 12px;
+
+  --text-b1: 60px;
+  --text-b2: 48px;
+  --text-b3: 36px;
+  --text-b4: 30px;
+  --text-b5: 24px;
+  --text-b6: 20px;
+  --text-b7: 16px;
+  --text-b8: 14px;
+  --text-b9: 12px;
+}
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-outfit: var(--font-outfit);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

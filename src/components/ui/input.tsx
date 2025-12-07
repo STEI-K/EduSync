@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "flex h-10 w-full px-8 py-4",
+  "flex h-10 w-full px-8 py-4 focus:outline-none",
   {
     variants: {
       variant: {
@@ -32,15 +32,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           type={type}
           className={cn(
             inputVariants({ variant, className }),
-            icon && "pr-10" // Kalau ada icon, otomatis tambah padding kanan biar gak nabrak
+            icon && "pr-19" // Kalau ada icon, otomatis tambah padding kanan biar gak nabrak
           )}
           ref={ref}
           {...props}
         />
         
-        {/* Render Icon kalau ada props-nya */}
         {icon && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground">
             {icon}
           </div>
         )}

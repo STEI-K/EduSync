@@ -27,6 +27,7 @@ export const registerSchema = loginSchema.extend({
         message: "Umur minimal 7 tahun"
     }),
     role: z.enum(ROLE),
+    telepon: z.string().min(1, "Nomor telepon tidak boleh kosong"),
     confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Password tidak sama",

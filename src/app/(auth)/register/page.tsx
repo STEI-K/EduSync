@@ -33,6 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import Image from "next/image";
 
 export default function RegisterScreen() {
     const router = useRouter()
@@ -77,144 +78,226 @@ export default function RegisterScreen() {
     }
 
     return (
-        <div>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
-                    console.log("GAGAL VALIDASI:", errors)
-                })}>
-                    <FormField
-                        control={form.control}
-                        name="nama"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Nama Lengkap</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Ari Darrell" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    
-                    <FormField
-                        control={form.control}
-                        name="role"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Role</FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                    value={field.value}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Pilih Role Kamu" />
-                                        </SelectTrigger>
-                                    </FormControl>
-
-                                    <SelectContent>
-                                        <SelectItem value="Guru">Guru</SelectItem>
-                                        <SelectItem value="Murid">Murid</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField 
-                        control={form.control}
-                        name="tanggalLahir"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tanggal Lahir</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant={"outline"}
-                                            >
-                                                {field.value ? (
-                                                    format(field.value, "PPP")
-                                                ) : (
-                                                    <span>Pilih tanggal lahir</span>
-                                                )}
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent>
-                                        <Calendar 
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) =>
-                                                date > new Date() || date < new Date("1900-01-01")
-                                            }
-                                            autoFocus
-                                            captionLayout="dropdown"
-                                            startMonth={new Date(1900, 0)}
-                                            endMonth={new Date()}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="example@gmail.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Password</FormLabel>
-                                <FormControl>
-                                    <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="confirmPassword"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Confirm Password</FormLabel>
-                                <FormControl>
-                                    <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {globalError && (
-                        <p>
-                            Error: {globalError}
-                        </p>
-                    )}
-
-                    <Button
-                        type="submit"
-                        disabled={form.formState.isSubmitting}
+        <div className="flex justify-center items-center h-screen mt-15 mb-15">
+            <div className="flex flex-col gap-10 px-21 py-21 shadow-[0_0_20px_rgba(0,0,0,0.15)] w-209">
+                <div className="text-center leading-none">
+                    <h1 className="text-blue-base font-bold text-h3">Create New Account</h1>
+                </div>
+                <Form {...form}>
+                    <form
+                        className="flex flex-col justify-center items-center gap-12"
+                        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                            console.log("GAGAL VALIDASI:", errors)
+                        })}
                     >
-                        {form.formState.isSubmitting ? "Sedang Mendaftar..." : "Daftar Sekarang"}
-                    </Button>
-                </form>
-            </Form>
+                        <div className="flex flex-col gap-5 w-full">
+                            <FormField
+                                control={form.control}
+                                name="nama"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Input 
+                                                placeholder="Nama Lengkap"
+                                                variant={"auth"}
+                                                icon={<Image 
+                                                    src={"/user.png"}
+                                                    alt="User"
+                                                    width={500}
+                                                    height={500}
+                                                    className="w-9 h-9"
+                                                />}
+                                                {...field} 
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            
+                            <FormField
+                                control={form.control}
+                                name="role"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                            value={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih peranmu disini" />
+                                                </SelectTrigger>
+                                            </FormControl>
+
+                                            <SelectContent>
+                                                <SelectItem value="Guru">Guru</SelectItem>
+                                                <SelectItem value="Murid">Murid</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField 
+                                control={form.control}
+                                name="tanggalLahir"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        className="flex justify-between rounded-[20px] bg-addition-blue-30 px-8 py-4 h-19 text-b6 text-addition-blue-80 font-bold hover:bg-addition-blue-30"
+                                                    >
+                                                        {field.value ? (
+                                                            format(field.value, "PPP")
+                                                        ) : (
+                                                            <span>Pilih tanggal lahir</span>
+                                                        )}
+                                                        <Image 
+                                                            src={"/calendar.png"}
+                                                            alt="Calendar"
+                                                            width={500}
+                                                            height={500}
+                                                            className="w-9 h-9"
+                                                        />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent>
+                                                <Calendar 
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) =>
+                                                        date > new Date() || date < new Date("1900-01-01")
+                                                    }
+                                                    autoFocus
+                                                    captionLayout="dropdown"
+                                                    startMonth={new Date(1900, 0)}
+                                                    endMonth={new Date()}
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Input 
+                                                placeholder="Email"
+                                                variant={"auth"}
+                                                icon={<Image 
+                                                    src={"/email.png"}
+                                                    alt="Email"
+                                                    width={500}
+                                                    height={500}
+                                                    className="w-9 h-9"
+                                                />}
+                                                {...field} 
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="telepon"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Input 
+                                                placeholder="No Telepon"
+                                                variant={"auth"}
+                                                icon={<Image 
+                                                    src={"/phone.png"}
+                                                    alt="Telepon"
+                                                    width={500}
+                                                    height={500}
+                                                    className="w-9 h-9"
+                                                />}
+                                                {...field} 
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="flex justify-center items-start gap-5">
+                                <FormField
+                                    control={form.control}
+                                    name="password"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="Password"
+                                                    variant={"auth"}
+                                                    icon={<Image 
+                                                        src={"/password.png"}
+                                                        alt="Password"
+                                                        width={500}
+                                                        height={500}
+                                                        className="w-9 h-9"
+                                                    />}
+                                                    type="password" 
+                                                    {...field} 
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="confirmPassword"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="Confirm Password"
+                                                    variant={"auth"}
+                                                    icon={<Image 
+                                                        src={"/password.png"}
+                                                        alt="Confirm Password"
+                                                        width={500}
+                                                        height={500}
+                                                        className="w-9 h-9"
+                                                    />}
+                                                    type="password"
+                                                    {...field} 
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        {globalError && (
+                            <p>
+                                Error: {globalError}
+                            </p>
+                        )}
+
+                        <Button
+                            type="submit"
+                            disabled={form.formState.isSubmitting}
+                        >
+                            {form.formState.isSubmitting ? "Sedang Mendaftar..." : "Daftar Sekarang"}
+                        </Button>
+                    </form>
+                </Form>
+            </div>
         </div>
     )
 }

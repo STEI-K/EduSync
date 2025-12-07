@@ -3,11 +3,11 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const inputVariants = cva(
-  "flex h-10 w-full px-8 py-4 focus:outline-none",
+  "flex h-19 w-full px-8 py-4 focus:outline-none",
   {
     variants: {
       variant: {
-        auth: "border-input rounded-[20px] h-19 bg-addition-blue-30 border-none text-b6 text-addition-blue-80 font-bold",
+        auth: "rounded-[20px] bg-addition-blue-30 border-none text-b6 placeholder:text-addition-blue-80 text-addition-blue-80 font-bold",
         filled: "border-none bg-slate-100 focus-visible:ring-blue-500", // Style Custom kamu (Background abu, no border)
       },
     },

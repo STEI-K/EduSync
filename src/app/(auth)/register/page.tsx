@@ -44,7 +44,7 @@ export default function RegisterScreen() {
         defaultValues: {
             nama: "",
             email: "",
-            role: "Murid",
+            role: "MURID",
             password: "",
             confirmPassword: "",
         }
@@ -64,6 +64,7 @@ export default function RegisterScreen() {
                 uid: user.uid,
                 nama: data.nama,
                 role: data.role,
+                telepon: data.telepon,
                 tanggalLahir: data.tanggalLahir,
                 email: data.email,
             };
@@ -115,31 +116,6 @@ export default function RegisterScreen() {
                                 )}
                             />
                             
-                            <FormField
-                                control={form.control}
-                                name="role"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Pilih peranmu disini" />
-                                                </SelectTrigger>
-                                            </FormControl>
-
-                                            <SelectContent>
-                                                <SelectItem value="Guru">Guru</SelectItem>
-                                                <SelectItem value="Murid">Murid</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
                             <FormField 
                                 control={form.control}
                                 name="tanggalLahir"
@@ -185,6 +161,7 @@ export default function RegisterScreen() {
                                     </FormItem>
                                 )}
                             />
+                            
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -208,6 +185,7 @@ export default function RegisterScreen() {
                                     </FormItem>
                                 )}
                             />
+
                             <FormField
                                 control={form.control}
                                 name="telepon"
@@ -231,6 +209,33 @@ export default function RegisterScreen() {
                                     </FormItem>
                                 )}
                             />
+
+                            <FormField
+                                control={form.control}
+                                name="role"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                            value={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Pilih peranmu disini" />
+                                                </SelectTrigger>
+                                            </FormControl>
+
+                                            <SelectContent>
+                                                <SelectItem value="GURU">Guru</SelectItem>
+                                                <SelectItem value="MURID">Murid</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            
                             <div className="flex justify-center items-start gap-5">
                                 <FormField
                                     control={form.control}
@@ -281,8 +286,8 @@ export default function RegisterScreen() {
                                     )}
                                 />
                             </div>
+                        <a href="/login" className="text-sh7 text-blue-base text-right hover:underline">Already have an account? <span className="font-bold">Log in here</span></a>
                         </div>
-
                         {globalError && (
                             <p>
                                 Error: {globalError}
@@ -292,8 +297,9 @@ export default function RegisterScreen() {
                         <Button
                             type="submit"
                             disabled={form.formState.isSubmitting}
+                            className="rounded-[20px] px-8 py-4 text-b5 text-white font-semibold w-46 h-16 bg-blue-base"
                         >
-                            {form.formState.isSubmitting ? "Sedang Mendaftar..." : "Daftar Sekarang"}
+                            {form.formState.isSubmitting ? "Sedang Mendaftar..." : "Sign Up"}
                         </Button>
                     </form>
                 </Form>

@@ -38,7 +38,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-full h-19 bg-addition-blue-30 items-center justify-between gap-2 rounded-[20px] px-8 py-4 text-b6 font-semibold text-addition-blue-80 whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none",
+        "flex group w-full h-19 bg-addition-blue-30 items-center justify-between gap-2 rounded-[20px] px-8 py-4 text-b6 font-semibold text-addition-blue-80 whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none",
         className
       )}
       {...props}
@@ -50,6 +50,7 @@ function SelectTrigger({
           alt="Chevron Down"
           width={42}
           height={36}
+          className="group-data-[state=open]:rotate-180 transition-transform duration-200"
         />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>

@@ -17,7 +17,7 @@ export default function DashboardMurid() {
 
   // 3. Render UI Utama
   return (
-    <main className="p-8">
+    <div className="px-20">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">
           Halo, {user.nama} 👋
@@ -44,6 +44,6 @@ export default function DashboardMurid() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

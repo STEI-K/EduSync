@@ -44,8 +44,14 @@ export default function LoginScreen() {
 
             if (userDoc.exists()) {
                 console.log("Login Berhasil")
+                if (userDoc.data().role == 'MURID') {
+                    router.push('/dashboard-murid')
+                } else if (userDoc.data().role == 'GURU') {
+                    router.push('/dashboard-guru')
+                }
             } else {
                 console.error("Data user tidak ditemukan")
+                
             }
         } catch (e) {
             console.error("Gagal Login:", e)

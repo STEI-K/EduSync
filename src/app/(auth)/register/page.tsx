@@ -60,16 +60,33 @@ export default function RegisterScreen() {
 
             const user = userCredential.user;
 
-            const userData = {
+            const baseData = {
                 uid: user.uid,
                 nama: data.nama,
                 role: data.role,
                 telepon: data.telepon,
                 tanggalLahir: data.tanggalLahir,
                 email: data.email,
+                createdAt: new Date(),
             };
 
-            await setDoc(doc(db, "users", userData.uid), userData);
+            let roleSpecificData = {};
+
+            if (data.role === 'MURID') {
+                roleSpecificData = {
+                    enrolledClassIds: [],
+                    assignmentGrades: {}
+                };
+            } else if (data.role === 'GURU') {
+                roleSpecificData = {
+                    createdClassIds: [],
+                };
+            }
+
+            await setDoc(doc(db, "users", user.uid), {
+                ...baseData,
+                ...roleSpecificData
+            });
             console.log("Login Berhasil")
             router.push('/login')
         } catch (e: any) {

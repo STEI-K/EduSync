@@ -4,6 +4,7 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import Link from "next/link";
 import SettingsDropdown from "./Settings";
+import { cn } from "@/lib/utils";
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -23,12 +24,11 @@ export default function Navbar() {
             <div className="flex items-center justify-center gap-29">
                 <Link
                     href={"/dashboard-murid"}
-                    className=""
                 >
                     {pathname === '/dashboard-murid' ? (
                         <h1 className="text-b6 text-blue-base font-normal">Homepage</h1>
                     ) : (
-                        <h1 className="text-b6 text-black font-normal">Homepage</h1>
+                        <h1 className="text-b6 font-normal hover:text-addition-blue-80">Homepage</h1>
                     )}
                 </Link>
 
@@ -39,7 +39,7 @@ export default function Navbar() {
                     {pathname === '/my-class' ? (
                         <h1 className="text-b6 text-blue-base font-normal">Classes</h1>
                     ) : (
-                        <h1 className="text-b6 text-black font-normal">Classes</h1>
+                        <h1 className="text-b6 font-normal hover:text-addition-blue-80">Classes</h1>
                     )}
                 </Link>
 
@@ -50,7 +50,7 @@ export default function Navbar() {
                     {pathname === '/my-grades' ? (
                         <h1 className="text-b6 text-blue-base font-normal">My Grades</h1>
                     ) : (
-                        <h1 className="text-b6 text-black font-normal">My Grades</h1>
+                        <h1 className="text-b6 font-normal hover:text-addition-blue-80">My Grades</h1>
                     )}
                 </Link>
 

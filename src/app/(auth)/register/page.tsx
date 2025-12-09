@@ -34,6 +34,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import Image from "next/image";
+import { CustomIcon } from "@/components/ui/CustomIcon";
 
 export default function RegisterScreen() {
     const router = useRouter()
@@ -115,14 +116,11 @@ export default function RegisterScreen() {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormControl>
-                                            <Input 
+                                            <Input
                                                 placeholder="Nama Lengkap"
                                                 variant={"auth"}
-                                                icon={<Image 
+                                                icon={<CustomIcon
                                                     src={"/user.png"}
-                                                    alt="User"
-                                                    width={500}
-                                                    height={500}
                                                     className="w-9 h-9"
                                                 />}
                                                 {...field} 
@@ -149,11 +147,8 @@ export default function RegisterScreen() {
                                                         ) : (
                                                             <span>Pilih tanggal lahir</span>
                                                         )}
-                                                        <Image 
+                                                        <CustomIcon
                                                             src={"/calendar.png"}
-                                                            alt="Calendar"
-                                                            width={500}
-                                                            height={500}
                                                             className="w-9 h-9"
                                                         />
                                                     </Button>
@@ -188,11 +183,8 @@ export default function RegisterScreen() {
                                             <Input 
                                                 placeholder="Email"
                                                 variant={"auth"}
-                                                icon={<Image 
+                                                icon={<CustomIcon
                                                     src={"/email.png"}
-                                                    alt="Email"
-                                                    width={500}
-                                                    height={500}
                                                     className="w-9 h-9"
                                                 />}
                                                 {...field} 
@@ -212,11 +204,8 @@ export default function RegisterScreen() {
                                             <Input 
                                                 placeholder="No Telepon"
                                                 variant={"auth"}
-                                                icon={<Image 
+                                                icon={<CustomIcon
                                                     src={"/phone.png"}
-                                                    alt="Telepon"
-                                                    width={500}
-                                                    height={500}
                                                     className="w-9 h-9"
                                                 />}
                                                 {...field} 
@@ -263,11 +252,8 @@ export default function RegisterScreen() {
                                                 <Input
                                                     placeholder="Password"
                                                     variant={"auth"}
-                                                    icon={<Image 
+                                                    icon={<CustomIcon
                                                         src={"/password.png"}
-                                                        alt="Password"
-                                                        width={500}
-                                                        height={500}
                                                         className="w-9 h-9"
                                                     />}
                                                     type="password" 
@@ -287,11 +273,8 @@ export default function RegisterScreen() {
                                                 <Input
                                                     placeholder="Confirm Password"
                                                     variant={"auth"}
-                                                    icon={<Image 
+                                                    icon={<CustomIcon
                                                         src={"/password.png"}
-                                                        alt="Confirm Password"
-                                                        width={500}
-                                                        height={500}
                                                         className="w-9 h-9"
                                                     />}
                                                     type="password"
@@ -303,7 +286,7 @@ export default function RegisterScreen() {
                                     )}
                                 />
                             </div>
-                        <a href="/login" className="text-sh7 text-blue-base text-right hover:underline">Already have an account? <span className="font-bold">Log in here</span></a>
+                        <a href="/login" className="text-sh7 text-blue-base text-right">Already have an account? <span className="font-bold hover:underline">Log in here</span></a>
                         </div>
                         {globalError && (
                             <p>

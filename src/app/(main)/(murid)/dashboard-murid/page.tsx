@@ -19,8 +19,12 @@ export default function DashboardMurid() {
   return (
     <div className="px-20">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Halo, {user.nama} 👋
+        <h1 
+          className="text-sh2 font-bold w-fit
+                    bg-linear-to-r from-blue-20 via-blue-40 to-blue-base
+                    bg-clip-text text-transparent"
+          >
+          Welcome Again, {user.nama}!
         </h1>
         <p className="text-gray-600">
           Email: {user.email} | Status: {user.role}

@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import Image from "next/image";
+import { CustomIcon } from "@/components/ui/CustomIcon";
 
 export default function LoginScreen() {
     const router = useRouter()
@@ -83,11 +84,8 @@ export default function LoginScreen() {
                                             <Input 
                                                 placeholder="Email"
                                                 variant={"auth"}
-                                                icon={<Image 
+                                                icon={<CustomIcon 
                                                     src={"/email.png"}
-                                                    alt="Email"
-                                                    width={500}
-                                                    height={500}
                                                     className="w-9 h-9"
                                                 />}
                                                 {...field}
@@ -107,11 +105,8 @@ export default function LoginScreen() {
                                                 placeholder="Password"
                                                 type="password"
                                                 variant={"auth"}
-                                                icon={<Image 
+                                                icon={<CustomIcon 
                                                     src={"/password.png"}
-                                                    alt="Password"
-                                                    width={500}
-                                                    height={500}
                                                     className="w-9 h-9"
                                                 />}
                                                 {...field}

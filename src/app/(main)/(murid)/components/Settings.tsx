@@ -31,7 +31,7 @@ export default function SettingsDropdown() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <div className="flex justify-center items-center gap-2">
-                    <span className="text-b6 font-normal">Settings</span>
+                    <span className="text-b6 font-normal hover:text-addition-blue-80">Settings</span>
                     <Image 
                         src={'/chevron_down.png'}
                         alt="chevron down"

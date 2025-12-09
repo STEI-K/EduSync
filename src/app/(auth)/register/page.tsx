@@ -139,19 +139,19 @@ export default function RegisterScreen() {
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
-                                                    <Button
-                                                        className="flex justify-between rounded-[20px] bg-addition-blue-30 px-8 py-4 h-19 text-b6 text-addition-blue-80 font-bold hover:bg-addition-blue-30"
+                                                    <div
+                                                        className="flex justify-between items-center text-black rounded-[20px] bg-addition-blue-30 px-8 py-4 h-19 text-b6 font-bold hover:bg-addition-blue-30"
                                                     >
                                                         {field.value ? (
                                                             format(field.value, "PPP")
                                                         ) : (
-                                                            <span>Pilih tanggal lahir</span>
+                                                            <span className="text-addition-blue-80">Pilih tanggal lahir</span>
                                                         )}
                                                         <CustomIcon
                                                             src={"/calendar.png"}
                                                             className="w-9 h-9"
                                                         />
-                                                    </Button>
+                                                    </div>
                                                 </FormControl>
                                             </PopoverTrigger>
                                             <PopoverContent>
@@ -232,7 +232,7 @@ export default function RegisterScreen() {
                                                 </SelectTrigger>
                                             </FormControl>
 
-                                            <SelectContent>
+                                            <SelectContent className="bg-addition-blue-30 ">
                                                 <SelectItem value="GURU">Guru</SelectItem>
                                                 <SelectItem value="MURID">Murid</SelectItem>
                                             </SelectContent>

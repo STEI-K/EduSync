@@ -4,32 +4,89 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUserProfile } from '@/lib/hooks/useUserProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Plus, 
-  Search, 
-  Send, 
-  ChevronLeft,
-  X,
-  FileText
-} from 'lucide-react';
+import { Search, Send, X, FileText, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import ReactMarkdown from 'react-markdown';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  limit 
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
+import { ChatSidebar } from './components/ChatSidebar';
 
-// URL Backend
+const FIGMA_CHAT = {
+  // 1. HALAMAN UTAMA
+  page: {
+    background: "bg-[#F8F9FC]",       // Warna Latar Belakang Seluruh Halaman
+    containerRadius: "rounded-[20px]", // Radius Sudut Kontainer Utama
+    containerMargin: "my-6",          // Margin Vertikal Halaman
+    mobileTogglePos: "top-4 left-4",  // Posisi Tombol Menu Mobile
+  },
+
+  // 2. WELCOME SCREEN (Saat chat kosong)
+  welcome: {
+    logoSize: "w-24 h-24 md:w-28 md:h-28", // Ukuran Logo Lynx
+    titleSize: "text-3xl md:text-5xl",     // Ukuran Font "Halo, Sobat"
+    titleWeight: "font-bold",              // Ketebalan Font
+    titleGradient: "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600", // Warna Gradien
+  },
+
+  // 3. MESSAGE BUBBLES
+  bubbles: {
+    radius: "rounded-2xl",            // Radius Bubble
+    padding: "p-3.5",                 // Padding Dalam Bubble
+    textSize: "text-sm",              // Ukuran Font Teks Chat
+    shadow: "shadow-sm",              // Shadow Bubble
+    
+    // User Bubble
+    userBg: "bg-blue-base",           
+    userText: "text-white",
+    
+    // Bot Bubble
+    botBg: "bg-white",
+    botText: "text-gray-800",
+    botBorder: "border border-gray-100",
+  },
+
+  // 4. AVATAR
+  avatar: {
+    size: "w-8 h-8",                  // Ukuran Lingkaran Avatar
+    userBg: "bg-blue-base",           // Background Avatar User
+    botBg: "bg-gradient-to-br from-blue-400 to-blue-600", // Background Avatar Bot
+    botShadow: "shadow-md",
+  },
+
+  // 5. INPUT AREA (TYPE BAR)
+  input: {
+    width: "max-w-3xl",               // Lebar Maksimal Input Bar
+    height: "h-12",                   // Tinggi Input Bar (ubah h-10, h-12, h-14 dst)
+    background: "bg-white",           // Warna Background
+    radius: "rounded-full",           // Radius Sudut
+    border: "border border-gray-100", // Garis Tepi
+    shadow: "shadow-[0_4px_20px_rgba(0,0,0,0.05)]", // Shadow Custom
+    
+    // Tombol Kirim/Search
+    btnPadding: "p-2",
+    btnActiveColor: "text-blue-base hover:bg-blue-50",
+    btnInactiveColor: "text-gray-400",
+    
+    // Font Input
+    fontSize: "text-base",
+    placeholderColor: "placeholder:text-gray-400",
+  },
+
+  // 6. FLASHCARD COMPONENT
+  flashcard: {
+    containerBg: "bg-white/10",
+    borderColor: "border-white/20",
+    downloadBtnBg: "bg-white",
+    downloadBtnText: "text-blue-base",
+  }
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://lynx-ai-production.up.railway.app"; 
 
+// --- TYPES ---
 type Message = {
   id?: string;
   role: 'user' | 'model';
@@ -45,20 +102,7 @@ type ChatSession = {
   last_updated: any;
 };
 
-// --- KOMPONEN INPUT AREA (DIPISAH SUPAYA KEYBOARD AMAN) ---
-type InputAreaProps = {
-  input: string;
-  setInput: (val: string) => void;
-  handleSend: () => void;
-  loading: boolean;
-  selectedFile: File | null;
-  preview: string | null;
-  clearFile: () => void;
-  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  isCentered?: boolean;
-};
-
+// --- COMPONENT INPUT AREA ---
 const InputArea = ({ 
   input, 
   setInput, 
@@ -70,12 +114,18 @@ const InputArea = ({
   handleFileSelect, 
   fileInputRef,
   isCentered 
-}: InputAreaProps) => {
+}: any) => {
   return (
     <div className={cn(
-      "w-full max-w-3xl flex flex-col bg-white rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-gray-100 transition-all duration-300 mx-auto",
+      "w-full flex flex-col transition-all duration-300 mx-auto",
+      FIGMA_CHAT.input.width,
+      FIGMA_CHAT.input.background,
+      FIGMA_CHAT.input.radius,
+      FIGMA_CHAT.input.shadow,
+      FIGMA_CHAT.input.border,
       isCentered ? "shadow-md" : ""
     )}>
+       {/* Preview File */}
        {selectedFile && (
          <div className="px-6 pt-3 flex items-center gap-2">
              <div className="relative group bg-gray-50 border rounded-lg p-2 pr-8 flex items-center gap-3">
@@ -102,6 +152,7 @@ const InputArea = ({
          </div>
        )}
 
+       {/* Input Field */}
        <div className="flex items-center px-4 py-2 gap-2">
            <input 
              type="file" 
@@ -124,15 +175,21 @@ const InputArea = ({
              onChange={(e) => setInput(e.target.value)}
              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
              placeholder={selectedFile ? "Tambahkan keterangan..." : "Tanyakan Materimu Di sini!"}
-             className="flex-1 border-none shadow-none focus-visible:ring-0 text-base px-2 h-10 bg-transparent placeholder:text-gray-400 font-medium"
+             className={cn(
+               "flex-1 border-none shadow-none focus-visible:ring-0 px-2 bg-transparent font-medium",
+               FIGMA_CHAT.input.height,
+               FIGMA_CHAT.input.fontSize,
+               FIGMA_CHAT.input.placeholderColor
+             )}
            />
            
            <button 
              onClick={handleSend}
              disabled={loading || (!input && !selectedFile)}
              className={cn(
-                 "p-2 rounded-full transition-all duration-200",
-                 (input || selectedFile) ? "text-blue-base hover:bg-blue-50" : "text-gray-400"
+                 "rounded-full transition-all duration-200",
+                 FIGMA_CHAT.input.btnPadding,
+                 (input || selectedFile) ? FIGMA_CHAT.input.btnActiveColor : FIGMA_CHAT.input.btnInactiveColor
              )}
            >
               {input || selectedFile ? <Send className="w-5 h-5" /> : <Search className="w-5 h-5" />}
@@ -151,10 +208,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [history, setHistory] = useState<ChatSession[]>([]);
-  
-  // State UI & Hover
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isHovered, setIsHovered] = useState(false); 
   
   // File Upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -163,12 +217,12 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. INIT
+  // INIT
   useEffect(() => {
     if (!sessionId) setSessionId(uuidv4());
   }, [sessionId]);
 
-  // 2. FETCH HISTORY
+  // FETCH HISTORY
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(
@@ -188,7 +242,7 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [user]);
 
-  // 3. FETCH MESSAGES & SORTING FIX
+  // FETCH MESSAGES
   useEffect(() => {
     if (!sessionId) return;
     const q = query(
@@ -201,16 +255,10 @@ export default function ChatPage() {
         ...doc.data()
       })) as Message[];
 
-      // [UPDATE] Manual Sort untuk mengatasi Timestamp Kembar
       msgs.sort((a, b) => {
-        // Ambil waktu (jika null anggap 0)
         const tA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
         const tB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
-        
-        // 1. Sort berdasarkan waktu
         if (tA !== tB) return tA - tB;
-        
-        // 2. Jika waktu sama persis (Batch Write), User WAJIB di atas Model
         if (a.role === 'user' && b.role === 'model') return -1;
         if (a.role === 'model' && b.role === 'user') return 1;
         return 0;
@@ -225,7 +273,7 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, preview]);
 
-  // --- LOGIC ---
+  // LOGIC
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -296,7 +344,7 @@ export default function ChatPage() {
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
-  // --- RENDER MESSAGE ---
+  // RENDER MESSAGE
   const renderMessage = (msg: Message, index: number) => {
     const isUser = msg.role === 'user';
     return (
@@ -304,27 +352,31 @@ export default function ChatPage() {
         <div className={cn("flex max-w-[85%] md:max-w-[70%] gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
           <div className="shrink-0 mt-1">
             {isUser ? (
-               <div className="w-8 h-8 rounded-full bg-blue-base flex items-center justify-center text-white text-xs font-bold ring-2 ring-white">
+               <div className={cn("rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white", FIGMA_CHAT.avatar.size, FIGMA_CHAT.avatar.userBg)}>
                   {user?.nama?.charAt(0) || "U"}
                </div>
             ) : (
-               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center p-1.5 shadow-md">
+               <div className={cn("rounded-full flex items-center justify-center p-1.5", FIGMA_CHAT.avatar.size, FIGMA_CHAT.avatar.botBg, FIGMA_CHAT.avatar.botShadow)}>
                   <Image src="/lynx_logo.png" width={30} height={30} alt="AI" className="object-contain invert brightness-0" /> 
                </div>
             )}
           </div>
           <div className={cn(
-            "p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all overflow-hidden",
+            "leading-relaxed transition-all overflow-hidden",
+            FIGMA_CHAT.bubbles.padding,
+            FIGMA_CHAT.bubbles.radius,
+            FIGMA_CHAT.bubbles.textSize,
+            FIGMA_CHAT.bubbles.shadow,
             isUser 
-              ? "bg-blue-base text-white rounded-tr-none" 
-              : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
+              ? `${FIGMA_CHAT.bubbles.userBg} ${FIGMA_CHAT.bubbles.userText} rounded-tr-none` 
+              : `${FIGMA_CHAT.bubbles.botBg} ${FIGMA_CHAT.bubbles.botText} ${FIGMA_CHAT.bubbles.botBorder} rounded-tl-none`
           )}>
             {msg.type === 'flashcard' ? (
                <div className="space-y-3 min-w-[250px]">
-                  <div className="flex items-center gap-2 border-b border-white/20 pb-2 mb-2">
+                  <div className={cn("flex items-center gap-2 border-b pb-2 mb-2", FIGMA_CHAT.flashcard.borderColor)}>
                     <span className="font-bold">📚 Flashcard Set</span>
                   </div>
-                  <div className="bg-white/10 p-3 rounded-lg border border-white/20">
+                  <div className={cn("p-3 rounded-lg border", FIGMA_CHAT.flashcard.containerBg, FIGMA_CHAT.flashcard.borderColor)}>
                      <p className="font-bold text-lg">{msg.data?.topic}</p>
                      <p className="text-xs opacity-80">{msg.data?.cards?.length} Kartu Pembelajaran</p>
                   </div>
@@ -332,7 +384,7 @@ export default function ChatPage() {
                     <a 
                       href={`data:application/pdf;base64,${msg.data.pdf_base64}`} 
                       download={`Flashcard-${msg.data.topic}.pdf`}
-                      className="flex items-center justify-center gap-2 p-2 bg-white text-blue-base rounded-lg hover:bg-gray-100 transition cursor-pointer font-semibold text-xs"
+                      className={cn("flex items-center justify-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition cursor-pointer font-semibold text-xs", FIGMA_CHAT.flashcard.downloadBtnBg, FIGMA_CHAT.flashcard.downloadBtnText)}
                     >
                        <Image src="/pdf_logo.png" width={16} height={16} alt="PDF" />
                        Download PDF
@@ -361,118 +413,27 @@ export default function ChatPage() {
 
   // --- RENDER UTAMA ---
   return (
-    <div className="relative flex h-[calc(100vh-120px)] w-full bg-[#F8F9FC] overflow-hidden rounded-[20px] my-6">
+    <div className={cn(
+        "relative flex h-[calc(100vh-120px)] w-full overflow-hidden",
+        FIGMA_CHAT.page.background,
+        FIGMA_CHAT.page.containerRadius,
+        FIGMA_CHAT.page.containerMargin
+    )}>
       
-      {/* SIDEBAR */}
-      <aside 
-        className={cn(
-            "flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out h-full z-30",
-            "absolute md:static",
-            isSidebarOpen 
-              ? "w-[85vw] md:w-[280px] translate-x-0" 
-              : "-translate-x-full md:translate-x-0 md:w-[80px]"
-        )}
-      >
-        <div className={cn(
-            "flex flex-col gap-4 h-full py-6 transition-all duration-300",
-            isSidebarOpen ? "px-6" : "px-2 items-center"
-        )}>
-            
-            {/* Header Sidebar & Toggle */}
-            <div className={cn(
-                "flex items-center w-full mb-2 transition-all shrink-0",
-                isSidebarOpen ? "justify-between" : "justify-center"
-            )}>
-                {/* Teks Judul (Hanya Muncul Jika Open) */}
-                <div className={cn(
-                    "flex flex-col overflow-hidden transition-all duration-300",
-                    isSidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0 h-0 hidden"
-                )}>
-                    <h2 className="text-[18px] font-bold leading-tight bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent">
-                      Link Your Thoughts
-                    </h2>
-                    <h2 className="text-[18px] font-bold leading-tight bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent">
-                      With Lynx
-                    </h2>
-                </div>
-
-                {/* LOGO PINTU (Toggle Button) */}
-                <button 
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    className="relative shrink-0 hover:scale-105 transition-transform"
-                    title="Toggle Sidebar"
-                >
-                    <div className={cn("relative transition-all", isSidebarOpen ? "w-9 h-9" : "w-9 h-9")}>
-                        <Image 
-                            src={isHovered ? "/door_hovered.svg" : "/door.svg"} 
-                            alt="Toggle Sidebar" 
-                            fill 
-                            className="object-contain"
-                        />
-                    </div>
-                </button>
-            </div>
-
-            {/* [UPDATE] Tombol New Chat (HILANG JIKA SIDEBAR TUTUP) */}
-            {isSidebarOpen && (
-                <div className="shrink-0 w-full animate-in fade-in zoom-in duration-300">
-                    <Button 
-                        onClick={createNewSession}
-                        className="w-full bg-[#5D87FF] hover:bg-[#4570EA] text-white rounded-[16px] h-10 shadow-sm font-semibold flex items-center gap-2 justify-center"
-                        title="New Chat"
-                    >
-                        <Plus className="w-5 h-5" />
-                        <span>New Chat</span>
-                    </Button>
-                </div>
-            )}
-
-            {/* History List (Hanya Muncul Jika Open) */}
-            <div className={cn(
-                "flex-1 overflow-y-auto pr-1 space-y-1 mt-2 custom-scrollbar w-full transition-all min-h-0",
-                isSidebarOpen ? "opacity-100" : "opacity-0 hidden"
-            )}>
-                <h3 className="text-xs font-bold text-black mb-3 uppercase tracking-wider sticky top-0 bg-white pb-2 z-10">History</h3>
-                {history.length === 0 && <p className="text-xs text-gray-400 italic px-2">Belum ada riwayat.</p>}
-                
-                {history.map((session) => (
-                    <button 
-                        key={session.id}
-                        onClick={() => switchSession(session.id)}
-                        className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all truncate",
-                            sessionId === session.id 
-                            ? "bg-transparent text-blue-base font-bold" 
-                            : "text-blue-40 hover:text-blue-base"
-                        )}
-                    >
-                        {session.title}
-                    </button>
-                ))}
-            </div>
-
-            {/* [UPDATE] Footer Back (HILANG JIKA SIDEBAR TUTUP) */}
-            {isSidebarOpen && (
-                <div className="pt-3 w-full border-t border-gray-100 shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <Button 
-                        variant="ghost" 
-                        className="w-full justify-start text-blue-90 hover:text-blue-base gap-2 px-0"
-                        onClick={() => window.history.back()}
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                        Back
-                    </Button>
-                </div>
-            )}
-        </div>
-      </aside>
+      {/* SIDEBAR Component */}
+      <ChatSidebar 
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
+        history={history}
+        currentSessionId={sessionId}
+        onSwitchSession={switchSession}
+        onCreateNewSession={createNewSession}
+      />
 
       {/* --- MAIN CHAT --- */}
-      <section className="flex-1 flex flex-col relative w-full h-full bg-[#F8F9FC]">
+      <section className={cn("flex-1 flex flex-col relative w-full h-full", FIGMA_CHAT.page.background)}>
         {/* Toggle Button MOBILE Only */}
-        <div className="absolute top-4 left-4 z-20 md:hidden">
+        <div className={cn("absolute z-20 md:hidden", FIGMA_CHAT.page.mobileTogglePos)}>
             <Button 
                 variant="outline" 
                 size="icon" 
@@ -489,7 +450,7 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center p-8 gap-6 animate-in fade-in zoom-in duration-500">
                <div className="flex items-center gap-4 mb-2">
-                   <div className="relative w-24 h-24 md:w-28 md:h-28 shrink-0">
+                   <div className={cn("relative shrink-0", FIGMA_CHAT.welcome.logoSize)}>
                       <Image 
                         src="/lynx_logo.png" 
                         fill 
@@ -499,14 +460,19 @@ export default function ChatPage() {
                       />
                    </div>
                    <h1 
-                     className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent tracking-tight py-2"
+                     className={cn(
+                         "bg-clip-text text-transparent tracking-tight py-2",
+                         FIGMA_CHAT.welcome.titleSize,
+                         FIGMA_CHAT.welcome.titleWeight,
+                         FIGMA_CHAT.welcome.titleGradient
+                     )}
                    >
                      Halo, {user?.nama || "Sobat"}!
                    </h1>
                </div>
                
                <div className="w-full max-w-2xl">
-                  {/* PASS PROPS (Input Tetap Fokus) */}
+                  {/* INPUT AREA */}
                   <InputArea 
                     input={input}
                     setInput={setInput}
@@ -543,7 +509,7 @@ export default function ChatPage() {
 
         {/* --- INPUT AREA (BOTTOM) --- */}
         {messages.length > 0 && (
-            <div className="p-4 md:p-6 w-full flex justify-center bg-[#F8F9FC]">
+            <div className={cn("p-4 md:p-6 w-full flex justify-center", FIGMA_CHAT.page.background)}>
                 <InputArea 
                     input={input}
                     setInput={setInput}

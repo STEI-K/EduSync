@@ -5,3 +5,6 @@ firebase-admin
 react-firebase-hooks
 @hookform/resolvers
 date-fns
+axios 
+react-markdown 
+uuid

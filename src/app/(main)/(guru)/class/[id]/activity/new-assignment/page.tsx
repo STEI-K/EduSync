@@ -31,7 +31,7 @@ export default function NewAssignmentPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   // [BARU] Setup React Hook Form
-  const form = useForm<AssignmentFormValues>({
+  const form = useForm({
     resolver: zodResolver(assignmentSchema),
     defaultValues: {
       title: "",
@@ -39,7 +39,7 @@ export default function NewAssignmentPage() {
       points: 100,
       dueDate: "",
     },
-  });
+});
 
   // Fetch Parent Title
   useEffect(() => {
@@ -254,6 +254,7 @@ export default function NewAssignmentPage() {
                             type="number" 
                             className="border-none shadow-none focus-visible:ring-0 bg-transparent text-right font-medium"
                             {...field}
+                            value={(field.value as number) ?? ""}
                           />
                         </FormControl>
                       </div>

@@ -2,324 +2,287 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { db } from "@/lib/firebase"; 
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, getDocs, doc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
+import { v4 as uuidv4 } from 'uuid'; // Install dulu: npm i uuid @types/uuid
 
 // UI Components
-import { Button } from "@/components/ui/button"; 
-import { Input } from "@/components/ui/input"; 
-import { Label } from "@/components/ui/label"; 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Plus, FileText, PlayCircle, Link as LinkIcon, MoreVertical, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-// Icons
-import { PenTool, Loader2, UploadCloud, FileText } from "lucide-react"; 
-
-// Tipe Data
-interface ModuleItem {
+// --- TIPE DATA ---
+interface Material {
   id: string;
   title: string;
-  type: 'chapter' | 'subchapter' | 'material' | 'assignment';
-  parentId?: string | null;
-  status: 'draft' | 'published';
-  classId: string;
-  fileUrl?: string;
+  type: "video" | "pdf" | "link";
+  url: string;
+}
+interface SubChapter {
+  id: string;
+  title: string;
+  materials: Material[];
+}
+interface Chapter {
+  id: string;
+  title: string;
+  subchapters: SubChapter[];
+}
+interface ModuleData {
+  id: string;
+  title: string;
+  chapters: Chapter[];
 }
 
 export default function ClassActivityPage() {
-  const { id } = useParams(); 
+  const { id: classId } = useParams();
   const router = useRouter();
   
-  const [items, setItems] = useState<ModuleItem[]>([]);
+  const [modules, setModules] = useState<ModuleData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // State Modal
+  // STATE MODAL
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalConfig, setModalConfig] = useState<{
-    type: 'chapter' | 'subchapter' | 'material';
-    parentId: string | null;
-    title: string;
-  }>({ type: 'chapter', parentId: null, title: 'Buat Baru' });
-  
+  const [modalType, setModalType] = useState<'module' | 'chapter' | 'subchapter' | 'material' | null>(null);
   const [inputTitle, setInputTitle] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [inputUrl, setInputUrl] = useState(""); // Untuk materi
+  
+  // STATE UNTUK TRACKING POSISI (Lagi edit module mana, chapter mana)
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
 
   // --- 1. FETCH DATA ---
   const fetchModules = async () => {
-    if (!id) return;
+    if (!classId) return;
     try {
-      const q = query(collection(db, "modules"), where("classId", "==", id));
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ModuleItem));
-      setItems(data.sort((a, b) => (a.title > b.title ? 1 : -1))); 
+      const q = query(collection(db, "classes", classId as string, "modules"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ModuleData[];
+      setModules(data);
     } catch (error) {
-      console.error("Error fetching modules:", error);
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchModules();
-  }, [id]);
+  useEffect(() => { fetchModules(); }, [classId]);
 
-  // --- 2. UPLOAD & CREATE ---
-  const uploadFile = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/raw/upload`, 
-      { method: "POST", body: formData }
-    );
-    const data = await res.json();
-    if (!data.secure_url) throw new Error("Gagal upload file");
-    return data.secure_url;
-  }
-
-  const handleCreate = async () => {
-    if (!inputTitle) return alert("Judul tidak boleh kosong");
-    
-    setIsUploading(true);
-    let finalFileUrl = "";
-
-    try {
-      if (modalConfig.type === 'material' && selectedFile) {
-        finalFileUrl = await uploadFile(selectedFile);
-      }
-
-      await addDoc(collection(db, "modules"), {
-        classId: id,
-        title: inputTitle,
-        type: modalConfig.type,
-        parentId: modalConfig.parentId,
-        status: "published",
-        fileUrl: finalFileUrl,
-        createdAt: serverTimestamp(),
-      });
-      
-      setIsModalOpen(false);
-      setInputTitle("");
-      setSelectedFile(null);
-      fetchModules(); 
-    } catch (error) {
-      console.error("Error creating:", error);
-      alert("Gagal membuat data.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const nameWithoutExt = file.name.split('.').slice(0, -1).join('.');
-      setInputTitle(nameWithoutExt);
-    }
-  }
-
-  // --- 3. FILTERING ---
-  const chapters = items.filter(i => i.type === 'chapter');
-  const getSubchapters = (chapterId: string) => 
-    items.filter(i => i.type === 'subchapter' && i.parentId === chapterId);
-  const getMaterials = (subchapterId: string) => 
-    items.filter(i => (i.type === 'material' || i.type === 'assignment') && i.parentId === subchapterId);
-
-  // --- STYLE CONSTANTS ---
-  const yellowBtnClass = "bg-[#FFE133] text-black hover:bg-[#E6C200] border-none font-medium text-xs px-4 py-2 h-auto rounded-md shadow-sm";
-  const blueTextClass = "text-[#466BFF] font-bold text-xl"; 
-  const blueSubTextClass = "text-[#466BFF] font-semibold text-lg";
-
-  // Helper Buka Modal
-  const openCreateModal = (e: React.MouseEvent, type: 'chapter' | 'subchapter' | 'material', parentId: string | null = null, modalTitle: string) => {
-    e.stopPropagation(); // [CRITICAL] Mencegah Accordion tertutup/terbuka saat klik tombol
-    setModalConfig({ type, parentId, title: modalTitle });
-    setInputTitle(""); 
-    setSelectedFile(null); 
+  // --- 2. LOGIC BUKA MODAL ---
+  const openModal = (type: 'module' | 'chapter' | 'subchapter' | 'material', modId?: string, chapId?: string, subId?: string) => {
+    setModalType(type);
+    setSelectedModuleId(modId || null);
+    setSelectedChapterId(chapId || null);
+    setSelectedSubId(subId || null);
+    setInputTitle("");
+    setInputUrl("");
     setIsModalOpen(true);
   };
 
-  const handleGoToAssignment = (e: React.MouseEvent, parentId: string) => {
-    e.stopPropagation();
-    router.push(`/class/${id}/activity/new-assignment?parentId=${parentId}`);
-  }
+  // --- 3. LOGIC SIMPAN (HEART OF THE APP) ---
+  const handleSave = async () => {
+    if (!inputTitle) return toast.error("Judul wajib diisi");
+
+    try {
+      // KASUS 1: BUAT MODULE BARU (Dokumen Baru)
+      if (modalType === 'module') {
+        await addDoc(collection(db, "classes", classId as string, "modules"), {
+          title: inputTitle,
+          chapters: [], // Array kosong awal
+          createdAt: serverTimestamp()
+        });
+        toast.success("Modul berhasil dibuat");
+      } 
+      
+      // KASUS 2: EDIT ISI MODULE (Update Dokumen Lama)
+      else if (selectedModuleId) {
+        // Cari module yang sedang diedit di state lokal
+        const moduleIndex = modules.findIndex(m => m.id === selectedModuleId);
+        if (moduleIndex === -1) return;
+
+        // Clone object module biar aman diedit (Immutability)
+        const updatedModule = { ...modules[moduleIndex] };
+        
+        if (modalType === 'chapter') {
+          // Push Chapter Baru
+          updatedModule.chapters.push({
+            id: uuidv4(),
+            title: inputTitle,
+            subchapters: []
+          });
+        } 
+        else if (modalType === 'subchapter' && selectedChapterId) {
+          // Cari Chapter target -> Push Subchapter
+          const chapIdx = updatedModule.chapters.findIndex(c => c.id === selectedChapterId);
+          if (chapIdx !== -1) {
+            updatedModule.chapters[chapIdx].subchapters.push({
+              id: uuidv4(),
+              title: inputTitle,
+              materials: []
+            });
+          }
+        }
+        else if (modalType === 'material' && selectedChapterId && selectedSubId) {
+           // Cari Subchapter target -> Push Material
+           const chapIdx = updatedModule.chapters.findIndex(c => c.id === selectedChapterId);
+           if (chapIdx !== -1) {
+             const subIdx = updatedModule.chapters[chapIdx].subchapters.findIndex(s => s.id === selectedSubId);
+             if (subIdx !== -1) {
+               updatedModule.chapters[chapIdx].subchapters[subIdx].materials.push({
+                 id: uuidv4(),
+                 title: inputTitle,
+                 type: "link", // Default link dulu biar simpel
+                 url: inputUrl || "#"
+               });
+             }
+           }
+        }
+
+        // UPDATE KE FIREBASE (Timpa field chapters)
+        const moduleRef = doc(db, "classes", classId as string, "modules", selectedModuleId);
+        await updateDoc(moduleRef, {
+          chapters: updatedModule.chapters
+        });
+        
+        toast.success(`Berhasil menambah ${modalType}`);
+      }
+
+      // Refresh data & Tutup Modal
+      setIsModalOpen(false);
+      fetchModules();
+
+    } catch (error) {
+      console.error("Gagal save:", error);
+      toast.error("Terjadi kesalahan saat menyimpan");
+    }
+  };
+
+  // --- 4. NAVIGASI KE ASSIGNMENT ---
+  const goToAssignmentPage = (moduleId: string, chapterId: string, subchapterId: string) => {
+    // Kita lempar ID-nya lewat URL Query Params agar page assignment tahu mau simpan dimana
+    router.push(`/class/${classId}/activity/new-assignment?moduleId=${moduleId}&chapterId=${chapterId}&subId=${subchapterId}`);
+  };
+
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto p-6 min-h-screen">
-      
-      {/* HEADER */}
+    <div className="max-w-5xl mx-auto p-6 pb-20">
       <div className="flex justify-between items-center mb-8">
-        <div>
-           <h1 className="text-2xl font-bold text-gray-900">Kurikulum</h1>
-           <p className="text-gray-500 text-sm">Susun materi pembelajaran</p>
-        </div>
-        <Button onClick={(e) => openCreateModal(e, 'chapter', null, 'Buat Chapter Baru')} className={yellowBtnClass}>
-          + Chapter Baru
-        </Button>
+        <h1 className="text-2xl font-bold">Materi & Tugas</h1>
+        <Button onClick={() => openModal('module')}>+ Tambah Modul</Button>
       </div>
 
-      {/* LIST KURIKULUM */}
-      <div className="space-y-4">
-        {loading ? <p>Loading...</p> : (
-          <Accordion type="multiple" className="w-full space-y-4 border-none">
-            
-            {chapters.map((chapter) => (
-              <AccordionItem key={chapter.id} value={chapter.id} className="border-none shadow-none">
-                
-                {/* 1. HEADER CHAPTER (Flex Justify Between) */}
-                <AccordionTrigger className="hover:no-underline py-2 px-0 [&>svg]:hidden w-full">
-                  <div className="flex items-center justify-between w-full pr-2">
-                    {/* Judul Kiri */}
-                    <span className={blueTextClass}>{chapter.title}</span>
-                    
-                    {/* Tombol Kanan */}
-                    <Button 
-                      size="sm"
-                      className={yellowBtnClass} 
-                      onClick={(e) => openCreateModal(e, 'subchapter', chapter.id, `Subchapter Baru di ${chapter.title}`)}
-                    >
-                      + Sub Chapter
-                    </Button>
-                  </div>
+      {modules.map((module) => (
+        <div key={module.id} className="mb-6 border rounded-lg bg-white overflow-hidden shadow-sm">
+          {/* HEADER MODUL */}
+          <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+             <h2 className="text-lg font-bold text-blue-800">{module.title}</h2>
+             <Button variant="ghost" size="sm" onClick={() => openModal('chapter', module.id)}>
+                + Chapter
+             </Button>
+          </div>
+
+          {/* LIST CHAPTERS */}
+          <Accordion type="multiple" className="w-full">
+            {module.chapters?.map((chapter) => (
+              <AccordionItem key={chapter.id} value={chapter.id} className="px-4">
+                <AccordionTrigger className="hover:no-underline">
+                  <span className="font-semibold">{chapter.title}</span>
                 </AccordionTrigger>
                 
-                <AccordionContent className="p-0 pl-6">
-                   {/* 2. LIST SUBCHAPTER */}
-                   <Accordion type="multiple" className="w-full border-none">
-                      {getSubchapters(chapter.id).map((sub) => (
-                        <AccordionItem key={sub.id} value={sub.id} className="border-none mb-2">
-                           
-                           {/* HEADER SUBCHAPTER (Flex Justify Between) */}
-                           <AccordionTrigger className="hover:no-underline py-2 px-0 [&>svg]:hidden w-full">
-                              <div className="flex items-center justify-between w-full pr-2">
-                                {/* Judul Kiri */}
-                                <span className={blueSubTextClass}>{sub.title}</span>
+                <AccordionContent className="pl-4 pb-4">
+                  {/* TOMBOL ADD SUBCHAPTER DI LEVEL CHAPTER */}
+                  <div className="mb-4">
+                     <Button 
+                       variant="outline" className="text-xs h-7"
+                       onClick={() => openModal('subchapter', module.id, chapter.id)}
+                     >
+                       + Sub Bab
+                     </Button>
+                  </div>
 
-                                {/* Tombol Kanan (Group Button) */}
-                                <div className="flex gap-2">
-                                  <Button 
-                                    size="sm"
-                                    className={yellowBtnClass}
-                                    onClick={(e) => openCreateModal(e, 'material', sub.id, `Upload Material ke ${sub.title}`)}
-                                  >
-                                    + Material
-                                  </Button>
-                                  <Button 
-                                    size="sm"
-                                    className={yellowBtnClass}
-                                    onClick={(e) => handleGoToAssignment(e, sub.id)}
-                                  >
-                                    + Assignment
-                                  </Button>
-                                </div>
-                              </div>
-                           </AccordionTrigger>
+                  {/* LIST SUBCHAPTERS */}
+                  <div className="space-y-6 border-l-2 border-gray-100 pl-4 ml-2">
+                    {chapter.subchapters?.map((sub) => (
+                      <div key={sub.id}>
+                        <div className="flex justify-between items-center mb-2">
+                           <h4 className="font-medium text-gray-700">{sub.title}</h4>
+                           <div className="flex gap-2">
+                              {/* Add Material (Modal) */}
+                              <Button 
+                                variant="ghost" size="icon" className="h-6 w-6" 
+                                onClick={() => openModal('material', module.id, chapter.id, sub.id)}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              {/* Add Assignment (Page Baru) */}
+                              <Button 
+                                variant="ghost" className="text-[10px] h-6 bg-blue-50 text-blue-600"
+                                onClick={() => goToAssignmentPage(module.id, chapter.id, sub.id)}
+                              >
+                                + Tugas
+                              </Button>
+                           </div>
+                        </div>
 
-                           <AccordionContent className="p-0 space-y-2">
-                              {/* 3. LIST MATERIAL (Isi Subchapter) */}
-                              <div className="space-y-2 pt-2"> 
-                                {getMaterials(sub.id).map((mat) => (
-                                  <div key={mat.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group cursor-pointer border border-transparent hover:border-gray-200">
-                                     <div className="flex items-center gap-3">
-                                        {mat.type === 'assignment' ? (
-                                          <PenTool size={18} className="text-orange-500" />
-                                        ) : (
-                                          <FileText size={18} className="text-gray-500" />
-                                        )}
-                                        
-                                        <div className="flex flex-col">
-                                          <span className="font-medium text-gray-700 group-hover:text-blue-600">
-                                            {mat.title}
-                                          </span>
-                                          {mat.fileUrl && (
-                                            <a href={mat.fileUrl} target="_blank" className="text-xs text-blue-400 hover:underline">
-                                              Download File
-                                            </a>
-                                          )}
-                                        </div>
-                                     </div>
-                                  </div>
-                                ))}
-                                {getMaterials(sub.id).length === 0 && (
-                                  <p className="text-gray-400 text-sm italic">Belum ada materi.</p>
-                                )}
-                              </div>
-                           </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                   </Accordion>
-
-                   {/* Empty State Subchapter */}
-                   {getSubchapters(chapter.id).length === 0 && (
-                     <p className="text-gray-400 text-sm italic py-2">Belum ada subchapter.</p>
-                   )}
-
+                        {/* LIST MATERIALS */}
+                        <div className="grid gap-2">
+                          {sub.materials?.map((mat) => (
+                            <div key={mat.id} className="flex items-center gap-2 p-2 rounded bg-gray-50 border text-sm">
+                               <FileText className="w-4 h-4 text-blue-500" />
+                               <a href={mat.url} target="_blank" className="hover:underline flex-1">
+                                 {mat.title}
+                               </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
-        )}
-      </div>
+        </div>
+      ))}
 
-      {/* MODAL GLOBAL */}
+      {/* --- SATU MODAL UNTUK SEMUA --- */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{modalConfig.title}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            {modalConfig.type === 'material' && (
+           <DialogHeader>
+             <DialogTitle className="capitalize">Tambah {modalType}</DialogTitle>
+           </DialogHeader>
+           
+           <div className="space-y-4 py-4">
               <div className="grid gap-2">
-                <Label>Upload File Materi</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors relative">
-                  <input 
-                    type="file" 
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <UploadCloud className="w-8 h-8 text-gray-400 mb-2"/>
-                  <p className="text-sm text-gray-600">
-                    {selectedFile ? selectedFile.name : "Klik untuk pilih file"}
-                  </p>
-                </div>
+                 <Label>Judul</Label>
+                 <Input 
+                   value={inputTitle} 
+                   onChange={(e) => setInputTitle(e.target.value)} 
+                   placeholder={`Masukkan nama ${modalType}...`}
+                 />
               </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label>Nama {modalConfig.type === 'chapter' ? 'Chapter' : modalConfig.type === 'subchapter' ? 'Sub Chapter' : 'Materi'}</Label>
-              <Input 
-                value={inputTitle} 
-                onChange={(e) => setInputTitle(e.target.value)}
-                placeholder="Masukkan nama..." 
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Batal</Button>
-            <Button onClick={handleCreate} disabled={isUploading} className="bg-blue-600 text-white">
-              {isUploading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>
-              ) : (
-                "Simpan"
+              
+              {modalType === 'material' && (
+                <div className="grid gap-2">
+                   <Label>URL File / Link</Label>
+                   <Input 
+                     value={inputUrl} 
+                     onChange={(e) => setInputUrl(e.target.value)} 
+                     placeholder="https://..."
+                   />
+                </div>
               )}
-            </Button>
-          </DialogFooter>
+           </div>
+
+           <DialogFooter>
+              <Button onClick={handleSave}>Simpan</Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,10 +1,10 @@
 // src/app/(main)/(murid)/chat/components/ChatSidebar.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom'; // [PENTING] Import Portal
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom'; 
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronLeft, MessageSquare, Trash2 } from 'lucide-react';
+import { Plus, MessageSquare, Trash2 } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -13,7 +13,7 @@ const STYLE = {
   widthClosed: "md:w-[80px]",     
   bgColor: "bg-white",            
   borderColor: "border-gray-200", 
-  activeItemColor: "text-blue-600 bg-blue-50", 
+  activeItemColor: "text-blue-600", 
   inactiveItemColor: "text-gray-600 hover:text-blue-600 hover:bg-gray-50", 
   newChatBtn: "bg-[#5D87FF] hover:bg-[#4570EA] text-white", 
   fontTitle: "text-[18px]",       
@@ -54,13 +54,11 @@ export function ChatSidebar({
     sessionId: string | null;
   }>({ visible: false, x: 0, y: 0, sessionId: null });
 
-  // [FIX] State untuk memastikan Portal hanya jalan di Client Side
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const handleContextMenu = (e: React.MouseEvent, sessionId: string) => {
     e.preventDefault(); 
-    // Koordinat Mouse Akurat
     setContextMenu({
       visible: true,
       x: e.clientX,
@@ -76,11 +74,10 @@ export function ChatSidebar({
     }
   };
 
-  // Tutup menu saat scroll atau klik di mana saja
   useEffect(() => {
     const handleGlobalClick = () => setContextMenu({ ...contextMenu, visible: false });
     window.addEventListener("click", handleGlobalClick);
-    window.addEventListener("scroll", handleGlobalClick); // Tutup juga saat scroll agar tidak melayang aneh
+    window.addEventListener("scroll", handleGlobalClick); 
     return () => {
       window.removeEventListener("click", handleGlobalClick);
       window.removeEventListener("scroll", handleGlobalClick);
@@ -91,7 +88,7 @@ export function ChatSidebar({
     <>
       <aside 
         className={cn(
-            "flex flex-col border-r transition-all duration-300 ease-in-out h-full z-30 absolute md:static shadow-xl md:shadow-none",
+            "flex flex-col border-r transition-all duration-300 ease-in-out h-full z-30 absolute md:static shadow-xl md:shadow-none rounded-none", // [FIXED] Explicit rounded-none
             STYLE.bgColor,
             STYLE.borderColor,
             isOpen 
@@ -114,15 +111,13 @@ export function ChatSidebar({
                 </button>
             </div>
 
-            {/* NEW CHAT */}
-            {isOpen ? (
+            {/* NEW CHAT BUTTON */}
+            {isOpen && (
                 <div className="shrink-0 w-full animate-in fade-in zoom-in duration-300">
                     <Button onClick={onCreateNewSession} className={cn("w-full rounded-2xl h-11 shadow-sm font-semibold flex items-center gap-2 justify-center transition-all", STYLE.newChatBtn)}>
                         <Plus className="w-5 h-5" /><span>New Chat</span>
                     </Button>
                 </div>
-            ) : (
-               <button onClick={onCreateNewSession} className={cn("p-2 rounded-full transition-all mt-2", STYLE.newChatBtn)} title="New Chat"><Plus className="w-6 h-6" /></button>
             )}
 
             {/* HISTORY LIST */}
@@ -150,21 +145,22 @@ export function ChatSidebar({
             {/* BACK BUTTON */}
             {isOpen && (
                 <div className="pt-3 w-full border-t border-gray-100 shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <Button variant="ghost" className="w-full justify-start text-gray-500 hover:text-blue-600 hover:bg-blue-50 gap-2 px-2" onClick={() => window.history.back()}>
-                        <ChevronLeft className="w-5 h-5" /><span className="font-medium">Kembali</span>
+                    <Button variant="ghost" className="w-full justify-start text-gray-500 hover:text-blue-600 hover:bg-blue-50 gap-3 px-2" onClick={() => window.history.back()}>
+                        <div className="relative w-5 h-5">
+                            <Image src="/back_chat.svg" alt="Back" fill className="object-contain" />
+                        </div>
+                        <span className="font-medium">Kembali</span>
                     </Button>
                 </div>
             )}
         </div>
       </aside>
 
-      {/* [FIX] CONTEXT MENU MENGGUNAKAN PORTAL */}
-      {/* Ini akan me-render menu langsung di body HTML, bukan di dalam sidebar yg sempit/bergerak */}
+      {/* CONTEXT MENU */}
       {mounted && contextMenu.visible && createPortal(
         <div 
           className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden py-1 w-40 animate-in fade-in zoom-in duration-150"
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          // Mencegah menu menutup saat diklik di dalamnya
           onClick={(e) => e.stopPropagation()} 
         >
           <button 

@@ -10,7 +10,7 @@ export default function Navbar() {
     const pathname = usePathname();
 
     return(
-        <div className="flex items-center justify-between shadow-[0_0_20px_rgba(0,0,0,0.15)] bg-white px-20 py-9 mb-11">
+        <div className="flex items-center justify-between shadow-[0_0_20px_rgba(0,0,0,0.15)] bg-white px-20 py-9">
             <div className="flex justify-center items-center gap-2">
                 <Image 
                     src={"/Logo.png"}

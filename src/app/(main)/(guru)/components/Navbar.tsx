@@ -64,8 +64,8 @@ export default function Navbar() {
                         </Link>
 
                         {/* 3. My Students */}
-                        <Link href={`/class/${classId}/students`}>
-                            <h1 className={getLinkStyle(pathname.includes('/students'))}>
+                        <Link href={`/class/${classId}/my-students`}>
+                            <h1 className={getLinkStyle(pathname.includes('/my-students'))}>
                                 My Students
                             </h1>
                         </Link>

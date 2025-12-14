@@ -15,6 +15,7 @@ import {
   getDoc
 } from "firebase/firestore";
 import { toast } from "sonner"; 
+import { useRouter } from "next/navigation";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -87,10 +88,22 @@ interface SubmissionData {
   feedback?: string;    
 }
 
+// 🆕 Interface untuk My Class
+interface ClassData {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  imageUrl?: string;
+  studentCount: number;
+  teacherName?: string;
+}
+
 export default function MyAssignmentsPage() {
   const { user, loading: userLoading } = useUserProfile();
+  const router = useRouter();
   
-  // State
+  // State Assignments
   const [assignments, setAssignments] = useState<AssignmentUI[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false); 
@@ -98,10 +111,14 @@ export default function MyAssignmentsPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentUI | null>(null);
   const [filterStatus, setFilterStatus] = useState<"On Going" | "Submitted" | "Graded">("On Going");
 
+  // 🆕 State Classes
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+
   // Ref untuk input file
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- 2. DATA FETCHING ---
+  // --- 2. DATA FETCHING ASSIGNMENTS ---
   useEffect(() => {
     const fetchData = async () => {
       // Tunggu user profile loaded
@@ -225,6 +242,45 @@ export default function MyAssignmentsPage() {
 
     if (!userLoading) {
         fetchData();
+    }
+  }, [user, userLoading]);
+
+  // 🆕 DATA FETCHING CLASSES
+  useEffect(() => {
+    const fetchClasses = async () => {
+      if (!user || !user.daftarKelas) {
+        setLoadingClasses(false);
+        return;
+      }
+      
+      try {
+        // Loop setiap classId di daftarKelas user
+        const classesPromises = user.daftarKelas.map(async (classId: string) => {
+          const classRef = doc(db, 'classes', classId);
+          const classSnap = await getDoc(classRef);
+          
+          if (classSnap.exists()) {
+            return {
+              id: classSnap.id,
+              ...classSnap.data()
+            } as ClassData;
+          }
+          return null;
+        });
+
+        const results = await Promise.all(classesPromises);
+        const validClasses = results.filter((cls): cls is ClassData => cls !== null);
+        
+        setClasses(validClasses);
+      } catch (err) {
+        console.error("Gagal mengambil data kelas:", err);
+      } finally {
+        setLoadingClasses(false);
+      }
+    };
+
+    if (!userLoading) {
+      fetchClasses();
     }
   }, [user, userLoading]);
 
@@ -358,7 +414,7 @@ export default function MyAssignmentsPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 md:p-12 font-sans">
       
-      {/* HEADER SECTION */}
+      {/* ========== SECTION 1: MY ASSIGNMENTS ========== */}
       <div className="flex flex-col gap-8 mb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <h1 className="text-[42px] font-bold text-blue-base tracking-tight leading-none">
@@ -404,8 +460,8 @@ export default function MyAssignmentsPage() {
         </div>
       </div>
 
-      {/* CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* CONTENT GRID - ASSIGNMENTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-20">
         
         {/* LEFT COLUMN: LIST TUGAS */}
         <div className="lg:col-span-4 flex flex-col gap-4">
@@ -577,6 +633,87 @@ export default function MyAssignmentsPage() {
         </div>
 
       </div>
+
+      {/* ========== SECTION 2: MY CLASS ========== */}
+      <div className="border-t-2 border-gray-200 pt-16 mt-16">
+        <div className="flex justify-between items-center mb-10">
+          <h2 className="text-2xl font-bold text-black">My Class</h2>
+        </div>
+
+        {loadingClasses ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-[12px]" />
+            ))}
+          </div>
+        ) : classes.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {classes.map((cls) => (
+              <div 
+                key={cls.id} 
+                onClick={() => router.push(`/class/${cls.id}`)}
+                className="rounded-[12px] px-7 py-8 shadow-sm hover:shadow-md hover:scale-105 transition-all bg-white group cursor-pointer relative overflow-hidden flex flex-col gap-5"
+              >
+                {/* Nama Kelas */}
+                <h3 className="text-sh3 font-semibold text-blue-base transition-colors line-clamp-1">
+                  {cls.name}
+                </h3>
+
+                {/* Logo Kelas */}
+                <div className="flex justify-center items-center">
+                  {cls.imageUrl ? (
+                    <img 
+                      src={cls.imageUrl} 
+                      alt="Class Logo" 
+                      className="w-20 h-20 rounded-[12px] object-cover border" 
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-[12px] bg-gray-100 flex items-center justify-center text-2xl">
+                      📚
+                    </div>
+                  )}
+                </div>
+
+                {/* Info Tambahan */}
+                <div className="text-center mt-2">
+                  <p className="text-xs text-gray-500 font-medium">
+                    Taught by {cls.teacherName || "Teacher"}
+                  </p>
+                </div>
+
+                {/* Enter Class Button */}
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2 mt-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/class/${cls.id}`);
+                  }}
+                >
+                  Enter Class
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+            <div className="w-20 h-20 bg-gray-50 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">
+              🎒
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Belum Ada Kelas
+            </h3>
+            <p className="text-gray-500 max-w-md mx-auto mb-6 text-sm">
+              Kamu belum bergabung ke kelas manapun. Dapatkan kode kelas dari gurumu!
+            </p>
+            <Button 
+              onClick={() => router.push('/dashboard-murid')} 
+              className="bg-blue-base hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg"
+            >
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -585,21 +722,21 @@ function AssignmentsSkeleton() {
     return (
         <div className="min-h-screen bg-[#F8F9FC] p-6 md:p-12">
             <div className="flex justify-between mb-10">
-                <Skeleton className="h-12 w-64 rounded-xl" />
-                <div className="flex gap-2">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                <div className="md:col-span-4 space-y-4">
-                    {[1, 2, 3].map((i) => (
-                        <Skeleton key={i} className="h-32 w-full rounded-2xl" />
-                    ))}
-                </div>
-                <div className="md:col-span-8">
-                    <Skeleton className="h-[600px] w-full rounded-[30px]" />
-                </div>
-            </div>
-        </div>
-    )
+                <Skeleton className="h-12w-64 rounded-xl" />
+<div className="flex gap-2">
+<Skeleton className="h-12 w-12 rounded-full" />
+</div>
+</div>
+<div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+<div className="md:col-span-4 space-y-4">
+{[1, 2, 3].map((i) => (
+<Skeleton key={i} className="h-32 w-full rounded-2xl" />
+))}
+</div>
+<div className="md:col-span-8">
+<Skeleton className="h-[600px] w-full rounded-[30px]" />
+</div>
+</div>
+</div>
+)
 }

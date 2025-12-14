@@ -3,8 +3,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, X, FileText, Plus, Download } from "lucide-react";
+import { Search, Send, X, FileText, Plus, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -25,50 +26,51 @@ import { db } from "@/lib/firebase";
 import Image from "next/image";
 import { ChatSidebar } from "../components/ChatSidebar";
 
-// --- CONFIG (UI ONLY) ---
-const UI = {
-  pageBg: "bg-[#F6F7FB]",
-  // Header sudah di layout parent, jadi kita pakai offset standar 64px
-  viewportHeight: "h-[calc(100vh-64px)]",
+// --- CONFIG ---
+const FIGMA_CHAT = {
+  page: {
+    background: "bg-[#F8F9FC]",
+    mobileTogglePos: "top-4 left-4",
+  },
+  welcome: {
+    logoSize: "w-24 h-24 md:w-28 md:h-28",
+    titleSize: "text-3xl md:text-5xl",
+    titleWeight: "font-bold",
+    titleGradient: "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600",
+  },
+  bubbles: {
+    radius: "rounded-2xl",
+    padding: "p-3.5",
+    textSize: "text-sm",
+    shadow: "shadow-sm",
+    userBg: "bg-blue-base",
+    userText: "text-white",
+    botBg: "bg-white",
+    botText: "text-gray-800",
+    botBorder: "border border-gray-100",
+  },
 
-  centerWrap: "max-w-[980px] mx-auto",
-  chatMax: "max-w-[820px] mx-auto",
+  input: {
+    width: "max-w-3xl",
+    pill:
+      "bg-white rounded-full border-2 border-[#A9D3F0] shadow-[0_14px_40px_rgba(0,0,0,0.10)] transition-all duration-200 ease-out hover:border-[#5AA5D0] hover:shadow-[0_22px_60px_rgba(0,0,0,0.18)] hover:-translate-y-[1px] focus-within:border-[#5AA5D0] focus-within:shadow-[0_22px_60px_rgba(0,0,0,0.18)] focus-within:-translate-y-[1px]",
+    inner: "flex items-center px-4 py-2 gap-2",
+    iconBtn: "p-2 rounded-full transition-opacity hover:opacity-80 active:scale-[0.98]",
+    iconActive: "text-black",
+    iconInactive: "text-black opacity-50 cursor-not-allowed",
+    field:
+      "flex-1 !h-12 !border-0 !bg-transparent !shadow-none !rounded-none !px-0 !py-0 font-medium text-base placeholder:text-gray-400 outline-none focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:!ring-0 focus-visible:!ring-offset-0 appearance-none",
+  },
 
-  // Empty state
-  greetTitle: "text-[42px] md:text-[54px] font-extrabold tracking-tight text-[#6AAFE8]",
-  greetWrap: "flex items-center gap-4 justify-center",
-
-  // Input pill (match screenshot)
-  inputPill:
-    "w-full max-w-[720px] bg-white rounded-full shadow-[0_18px_45px_rgba(0,0,0,0.12)] border border-white/60",
-  inputInner: "h-14 md:h-16 flex items-center gap-3 px-4 md:px-6",
-  inputField:
-    "flex-1 border-none shadow-none focus-visible:ring-0 bg-transparent font-medium text-[15px] md:text-[16px] placeholder:text-gray-400",
-  iconBtn:
-    "h-9 w-9 md:h-10 md:w-10 rounded-full flex items-center justify-center hover:bg-gray-100 active:scale-[0.98] transition",
-  iconLeft: "text-gray-700",
-  iconRight: "text-gray-700",
-
-  // Messages
-  msgRow: "w-full flex mb-5",
-  bubbleUser:
-    "bg-[#DFF2FF] text-gray-900 rounded-2xl rounded-tr-md px-5 py-4 shadow-[0_10px_22px_rgba(0,0,0,0.07)]",
-  bubbleBot:
-    "bg-white text-gray-900 rounded-2xl rounded-tl-md px-5 py-4 shadow-[0_10px_22px_rgba(0,0,0,0.06)] border border-gray-100",
-  prose: "prose prose-sm max-w-none break-words prose-p:my-2 prose-li:my-0.5",
-
-  // PDF card (match screenshot 3)
-  fileCard:
-    "mt-3 w-full rounded-xl bg-white border border-gray-200 shadow-sm flex items-center gap-3 px-4 py-3",
-  fileName: "text-[12px] font-semibold text-gray-900 truncate",
-  fileIconBox: "h-9 w-9 rounded-lg bg-[#F2F4F8] flex items-center justify-center border border-gray-200",
-  downloadBtn: "h-9 w-9 rounded-lg hover:bg-gray-100 flex items-center justify-center",
-
-  // Footer
-  powered: "text-[10px] font-semibold text-[#7FB3E6] tracking-wide",
+  flashcard: {
+    containerBg: "bg-white/10",
+    borderColor: "border-white/20",
+    downloadBtnBg: "bg-white",
+    downloadBtnText: "text-blue-base",
+  },
 };
 
-const API_URL = "https://lynx-ai-up.railway.app";
+const API_URL = "http://localhost:8000";
 
 // --- CLOUDINARY CONFIG ---
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -93,20 +95,6 @@ type ChatSession = {
   last_updated: any;
 };
 
-type InputAreaProps = {
-  input: string;
-  setInput: (v: string) => void;
-  handleSend: () => void;
-  loading: boolean;
-  selectedFile: File | null;
-  preview: string | null;
-  clearFile: () => void;
-  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  placeholder: string;
-  centered?: boolean;
-};
-
 const InputArea = ({
   input,
   setInput,
@@ -117,92 +105,81 @@ const InputArea = ({
   clearFile,
   handleFileSelect,
   fileInputRef,
-  placeholder,
-  centered,
-}: InputAreaProps) => {
+  isCentered,
+}: any) => {
+  const canSend = !!(input?.trim?.() || selectedFile);
+
   return (
-    <div className={cn("w-full flex flex-col items-center", centered ? "gap-3" : "gap-2")}>
-      {/* Selected file preview (tidak mengubah logic, cuma dirapihin) */}
+    <div className={cn("w-full flex flex-col mx-auto", FIGMA_CHAT.input.width, FIGMA_CHAT.input.pill)}>
       {selectedFile && (
-        <div className="w-full max-w-[720px] flex items-center justify-start">
-          <div className="relative rounded-xl bg-white border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-3">
+        <div className="px-6 pt-3 flex items-center gap-2">
+          <div className="relative group bg-white border border-gray-200 rounded-lg p-2 pr-8 flex items-center gap-3 shadow-sm">
             {preview ? (
-              <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-200">
+              <div className="relative w-8 h-8 rounded overflow-hidden border border-gray-200">
                 <Image src={preview} alt="Preview" fill className="object-cover" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-[#F2F4F8] border border-gray-200 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-gray-700" />
+              <div className="w-8 h-8 bg-[#F2F4F8] border border-gray-200 rounded flex items-center justify-center text-gray-700">
+                <FileText className="w-5 h-5" />
               </div>
             )}
 
             <div className="flex flex-col min-w-0">
-              <div className="text-[12px] font-semibold text-gray-900 truncate max-w-[260px]">{selectedFile.name}</div>
-              <div className="text-[10px] text-gray-500">{(selectedFile.size / 1024).toFixed(0)} KB</div>
+              <span className="text-xs font-semibold max-w-[200px] truncate text-gray-900">{selectedFile.name}</span>
+              <span className="text-[10px] text-gray-500">{(selectedFile.size / 1024).toFixed(0)} KB</span>
             </div>
 
             <button
               onClick={clearFile}
-              className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-white border border-gray-200 shadow flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition"
-              title="Remove"
+              className="absolute top-1 right-1 bg-white border border-gray-200 hover:bg-red-50 hover:text-red-600 rounded-full p-0.5 transition shadow-sm"
               type="button"
+              title="Remove"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3 h-3" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Main pill input */}
-      <div className={cn(UI.inputPill, loading ? "opacity-90" : "")}>
-        <div className={UI.inputInner}>
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileSelect}
-            accept="image/*,application/pdf"
-          />
+      <div className={FIGMA_CHAT.input.inner}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          onChange={handleFileSelect}
+          accept="image/*,application/pdf"
+        />
 
-          {/* Plus icon (inside pill) */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
-            className={cn(UI.iconBtn, UI.iconLeft, loading ? "cursor-not-allowed opacity-60" : "")}
-            aria-label="Upload"
-            title="Upload"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(FIGMA_CHAT.input.iconBtn, FIGMA_CHAT.input.iconActive)}
+          title="Upload"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
 
-          {/* Input */}
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder={placeholder}
-            className={UI.inputField}
-            disabled={loading}
-          />
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          placeholder={selectedFile ? "Tambahkan keterangan..." : "Tanyakan Materimu Di sini!"}
+          className={FIGMA_CHAT.input.field}
+          disabled={loading}
+        />
 
-          {/* Right icon: always Search (UI 1:1 screenshot), logic tetap handleSend */}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={loading || (!input.trim() && !selectedFile)}
-            className={cn(
-              UI.iconBtn,
-              UI.iconRight,
-              loading || (!input.trim() && !selectedFile) ? "opacity-50 cursor-not-allowed" : ""
-            )}
-            aria-label="Send"
-            title="Send"
-          >
-            <Search className="w-5 h-5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={loading || !canSend}
+          className={cn(
+            FIGMA_CHAT.input.iconBtn,
+            loading || !canSend ? FIGMA_CHAT.input.iconInactive : FIGMA_CHAT.input.iconActive
+          )}
+          title="Send"
+        >
+          {canSend ? <Send className="w-6 h-6" /> : <Search className="w-6 h-6" />}
+        </button>
       </div>
     </div>
   );
@@ -261,10 +238,8 @@ export default function ChatPage() {
 
       msgs.sort((a, b) => {
         const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : a.createdAt || Date.now();
-        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : b.createdAt || Date.now();
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : a.createdAt || Date.now();
         const diff = timeA - timeB;
-
-        // keep original tie-breaker (logic unchanged)
         if (Math.abs(diff) < 1000) {
           if (a.role === "user" && b.role === "model") return -1;
           if (a.role === "model" && b.role === "user") return 1;
@@ -274,7 +249,6 @@ export default function ChatPage() {
 
       setMessages(msgs);
     });
-
     return () => unsubscribe();
   }, [sessionId]);
 
@@ -336,7 +310,7 @@ export default function ChatPage() {
     }
   };
 
-  // --- SEND LOGIC (UNCHANGED) ---
+  // --- SEND LOGIC ---
   const handleSend = async () => {
     if ((!input.trim() && !selectedFile) || !user) return;
 
@@ -344,8 +318,7 @@ export default function ChatPage() {
     const currentFile = selectedFile;
     const isFirstMessage = messages.length === 0;
 
-    // optimistic UI (unchanged)
-    const tempFileUrl = currentFile ? (preview || URL.createObjectURL(currentFile)) : undefined;
+    const tempFileUrl = currentFile ? preview || URL.createObjectURL(currentFile) : undefined;
 
     const tempUserMessage: Message = {
       id: uuidv4(),
@@ -380,8 +353,7 @@ export default function ChatPage() {
       let fileUrl = "";
       if (currentFile) fileUrl = await uploadToCloudinary(currentFile);
 
-      // payload unchanged
-      const payload: any = {
+      let payload: any = {
         message: userMsg || (currentFile ? "Lampiran File" : ""),
         session_id: sessionId,
         user_id: user.uid,
@@ -405,6 +377,7 @@ export default function ChatPage() {
     setSessionId(id);
     if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
+
   const createNewSession = () => {
     setSessionId(uuidv4());
     if (window.innerWidth < 768) setIsSidebarOpen(false);
@@ -419,85 +392,100 @@ export default function ChatPage() {
       (msg.fileName && msg.fileName.toLowerCase().endsWith(".pdf"));
 
     return (
-      <div key={msg.id || index} className={cn(UI.msgRow, isUser ? "justify-end" : "justify-start")}>
-        <div className={cn("max-w-[86%] md:max-w-[72%]", isUser ? UI.bubbleUser : UI.bubbleBot)}>
-          {/* file/image rendering (UI refined only) */}
-          {msg.imageUrl && (
-            <div className="mb-2">
-              {isPdf ? (
-                <div className={UI.fileCard}>
-                  <div className={UI.fileIconBox}>
-                    <FileText className="w-5 h-5 text-gray-700" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className={UI.fileName}>{msg.fileName || "Dokumen PDF"}</div>
-                  </div>
-
-                  <a
-                    href={msg.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={UI.downloadBtn}
-                    title="Download / Open"
+      <div key={msg.id || index} className={cn("flex w-full mb-4", isUser ? "justify-end" : "justify-start")}>
+        {/* AVATAR DIHAPUS: langsung bubble tanpa kolom avatar */}
+        <div className={cn("max-w-[85%] md:max-w-[70%]")}>
+          <div
+            className={cn(
+              "leading-relaxed transition-all overflow-hidden",
+              FIGMA_CHAT.bubbles.padding,
+              FIGMA_CHAT.bubbles.radius,
+              FIGMA_CHAT.bubbles.textSize,
+              FIGMA_CHAT.bubbles.shadow,
+              isUser
+                ? `${FIGMA_CHAT.bubbles.userBg} ${FIGMA_CHAT.bubbles.userText} rounded-tr-none`
+                : `${FIGMA_CHAT.bubbles.botBg} ${FIGMA_CHAT.bubbles.botText} ${FIGMA_CHAT.bubbles.botBorder} rounded-tl-none`
+            )}
+          >
+            {msg.imageUrl && (
+              <div className="mb-3">
+                {isPdf ? (
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg border backdrop-blur-sm",
+                      isUser ? "text-white bg-white/10 border-white/20" : "text-gray-800 border-gray-200 bg-gray-50"
+                    )}
                   >
-                    <Download className="w-5 h-5 text-gray-700" />
-                  </a>
-                </div>
-              ) : (
-                <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={msg.imageUrl} alt="Uploaded content" className="max-w-full h-auto object-cover max-h-[320px]" />
-                </div>
-              )}
-            </div>
-          )}
-
-          {msg.type === "flashcard" ? (
-            // keep existing flashcard semantics; only presentational tidy
-            <div className="space-y-3">
-              <div className="font-bold text-sm">📚 Flashcard Set</div>
-              <div className="rounded-xl border border-gray-200 bg-[#F8FAFC] p-4">
-                <div className="font-extrabold text-base">{msg.data?.topic}</div>
-                <div className="text-xs text-gray-500">{msg.data?.cards?.length} Kartu Pembelajaran</div>
-              </div>
-              {msg.data?.pdf_base64 && (
-                <a
-                  href={`data:application/pdf;base64,${msg.data.pdf_base64}`}
-                  download={`Flashcard-${msg.data.topic}.pdf`}
-                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={UI.fileIconBox}>
-                      <FileText className="w-5 h-5 text-gray-700" />
+                    <div className={cn("p-2 rounded shrink-0", isUser ? "bg-white/20" : "bg-white border border-gray-200")}>
+                      <FileText className="w-5 h-5" />
                     </div>
-                    <div className="text-[12px] font-semibold text-gray-900">Download PDF</div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-xs font-bold truncate max-w-[220px]">{msg.fileName || "Dokumen PDF"}</span>
+                      <a
+                        href={msg.imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "text-[10px] underline flex items-center gap-1",
+                          isUser ? "opacity-85 hover:opacity-100" : "text-gray-600 hover:text-gray-800"
+                        )}
+                      >
+                        Lihat Dokumen <Download className="w-3 h-3" />
+                      </a>
+                    </div>
                   </div>
-                  <Download className="w-5 h-5 text-gray-700" />
-                </a>
-              )}
-            </div>
-          ) : (
-            <div className={UI.prose}>
-              <ReactMarkdown
-                components={{
-                  ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2" {...props} />,
-                  ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2" {...props} />,
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
-            </div>
-          )}
+                ) : (
+                  <div className={cn("rounded-lg overflow-hidden border", isUser ? "border-white/20" : "border-gray-200")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={msg.imageUrl} alt="Uploaded content" className="max-w-full h-auto object-cover max-h-[300px]" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {msg.type === "flashcard" ? (
+              <div className="space-y-3 min-w-[250px]">
+                <div className={cn("flex items-center gap-2 border-b pb-2 mb-2", FIGMA_CHAT.flashcard.borderColor)}>
+                  <span className="font-bold">📚 Flashcard Set</span>
+                </div>
+                <div className={cn("p-3 rounded-lg border", FIGMA_CHAT.flashcard.containerBg, FIGMA_CHAT.flashcard.borderColor)}>
+                  <p className="font-bold text-lg">{msg.data?.topic}</p>
+                  <p className="text-xs opacity-80">{msg.data?.cards?.length} Kartu Pembelajaran</p>
+                </div>
+                {msg.data?.pdf_base64 && (
+                  <a
+                    href={`data:application/pdf;base64,${msg.data.pdf_base64}`}
+                    download={`Flashcard-${msg.data.topic}.pdf`}
+                    className={cn(
+                      "flex items-center justify-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition cursor-pointer font-semibold text-xs",
+                      FIGMA_CHAT.flashcard.downloadBtnBg,
+                      FIGMA_CHAT.flashcard.downloadBtnText
+                    )}
+                  >
+                    <Image src="/pdf_logo.png" width={16} height={16} alt="PDF" /> Download PDF
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className={cn("prose prose-sm max-w-none break-words", isUser ? "prose-invert" : "")}>
+                <ReactMarkdown
+                  components={{
+                    ul: ({ node, ...props }) => <ul className="list-disc pl-4 my-1" {...props} />,
+                    ol: ({ node, ...props }) => <ol className="list-decimal pl-4 my-1" {...props} />,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   };
 
-  const isEmpty = messages.length === 0;
-
   return (
-    <div className={cn("relative w-full overflow-hidden flex", UI.pageBg, UI.viewportHeight)}>
+    <div className={cn("relative flex h-[calc(100vh-120px)] w-full overflow-hidden", FIGMA_CHAT.page.background)}>
       <ChatSidebar
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
@@ -508,22 +496,38 @@ export default function ChatPage() {
         onDeleteSession={handleDeleteSession}
       />
 
-      {/* MAIN */}
-      <section className="flex-1 relative h-full">
-        {/* Content area */}
-        <div className={cn("h-full", UI.pageBg)}>
-          {isEmpty ? (
-            // EMPTY STATE (match screenshot 1 & 2)
-            <div className="h-full flex flex-col">
-              <div className={cn("flex-1 flex items-center justify-center", UI.centerWrap)}>
-                <div className="w-full flex flex-col items-center gap-10">
-                  <div className={UI.greetWrap}>
-                    <div className="relative w-[58px] h-[58px] md:w-[68px] md:h-[68px]">
-                      <Image src="/lynx_logo.png" alt="Lynx" fill className="object-contain" priority />
-                    </div>
-                    <h1 className={UI.greetTitle}>Halo, {user?.nama || "Sobat"}!</h1>
-                  </div>
+      <section className={cn("flex-1 flex flex-col relative w-full h-full", FIGMA_CHAT.page.background)}>
+        <div className={cn("absolute z-20 md:hidden", FIGMA_CHAT.page.mobileTogglePos)}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="bg-white shadow-sm border-gray-200"
+          >
+            <div className="relative w-6 h-6">
+              <Image src="/door.svg" alt="Toggle" fill className="object-contain" />
+            </div>
+          </Button>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-8 custom-scrollbar h-full">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center p-8 animate-in fade-in zoom-in duration-500">
+              <div className="flex-1 flex flex-col items-center justify-center w-full max-w-3xl gap-8">
+                <div className="flex items-center gap-4 mb-2">
+                  <h1
+                    className={cn(
+                      "bg-clip-text text-transparent tracking-tight py-2",
+                      FIGMA_CHAT.welcome.titleSize,
+                      FIGMA_CHAT.welcome.titleWeight,
+                      FIGMA_CHAT.welcome.titleGradient
+                    )}
+                  >
+                    Halo, {user?.nama || "Sobat"}!
+                  </h1>
+                </div>
+
+                <div className="w-full">
                   <InputArea
                     input={input}
                     setInput={setInput}
@@ -534,57 +538,51 @@ export default function ChatPage() {
                     clearFile={clearFile}
                     handleFileSelect={handleFileSelect}
                     fileInputRef={fileInputRef}
-                    placeholder="Tanyakan Materimu Di sini!"
-                    centered
+                    isCentered={true}
                   />
                 </div>
               </div>
 
-              <div className="pb-6 flex items-center justify-center">
-                <div className={UI.powered}>Powered By Lynx</div>
+              <div className="mt-auto pb-4">
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase bg-gradient-to-r from-gray-400 via-blue-300 to-gray-400 bg-clip-text text-transparent opacity-90">
+                  POWERED BY LYNX
+                </p>
               </div>
             </div>
           ) : (
-            // CHAT STATE (match screenshot 3)
-            <div className="h-full flex flex-col">
-              <div className={cn("flex-1 overflow-y-auto px-4 md:px-8 pt-8", UI.chatMax)}>
-                {messages.map((msg, idx) => renderMessage(msg, idx))}
+            <div className="w-full max-w-4xl mx-auto pb-4">
+              {messages.map((msg, idx) => renderMessage(msg, idx))}
 
-                {loading && (
-                  <div className={cn(UI.msgRow, "justify-start")}>
-                    <div className={cn("max-w-[72%]", UI.bubbleBot)}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-[#6AAFE8] rounded-full animate-bounce" />
-                        <span className="w-2 h-2 bg-[#6AAFE8] rounded-full animate-bounce [animation-delay:120ms]" />
-                        <span className="w-2 h-2 bg-[#6AAFE8] rounded-full animate-bounce [animation-delay:240ms]" />
-                      </div>
-                    </div>
+              {loading && (
+                <div className="flex w-full mb-6 justify-start">
+                  <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:120ms]"></span>
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:240ms]"></span>
                   </div>
-                )}
-
-                <div ref={messagesEndRef} className="h-8" />
-              </div>
-
-              {/* Bottom input */}
-              <div className={cn("px-4 md:px-8 pb-8 pt-4", UI.pageBg)}>
-                <div className={UI.chatMax}>
-                  <InputArea
-                    input={input}
-                    setInput={setInput}
-                    handleSend={handleSend}
-                    loading={loading}
-                    selectedFile={selectedFile}
-                    preview={preview}
-                    clearFile={clearFile}
-                    handleFileSelect={handleFileSelect}
-                    fileInputRef={fileInputRef}
-                    placeholder="Ask Lynx!"
-                  />
                 </div>
-              </div>
+              )}
+
+              <div ref={messagesEndRef} className="h-4" />
             </div>
           )}
         </div>
+
+        {messages.length > 0 && (
+          <div className={cn("p-4 md:p-6 w-full flex justify-center", FIGMA_CHAT.page.background)}>
+            <InputArea
+              input={input}
+              setInput={setInput}
+              handleSend={handleSend}
+              loading={loading}
+              selectedFile={selectedFile}
+              preview={preview}
+              clearFile={clearFile}
+              handleFileSelect={handleFileSelect}
+              fileInputRef={fileInputRef}
+            />
+          </div>
+        )}
       </section>
     </div>
   );

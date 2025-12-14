@@ -37,9 +37,9 @@ export default function Navbar() {
                     className=""
                 >
                     {pathname === '/myclasses' ? (
-                        <h1 className="text-b6 text-blue-base font-normal">Classes</h1>
+                        <h1 className="text-b6 text-blue-base font-normal">Courses</h1>
                     ) : (
-                        <h1 className="text-b6 font-normal hover:text-addition-blue-80">Classes</h1>
+                        <h1 className="text-b6 font-normal hover:text-addition-blue-80">Courses</h1>
                     )}
                 </Link>
 

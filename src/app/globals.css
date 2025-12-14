@@ -53,6 +53,18 @@
   --color-addition-yellow-90: #555347;
   --color-addition-yellow-100: #33322B;
 
+  --color-purple-base: #7D46FF;
+  --color-purple-10: #E5DAFF;
+  --color-purple-20: #D4C1FF;
+  --color-purple-30: #BEA2FF;
+  --color-purple-40: #A884FF;
+  --color-purple-50: #9365FF;
+  --color-purple-60: #683AD4;
+  --color-purple-70: #532FAA;
+  --color-purple-80: #3F2380;
+  --color-purple-90: #2A1755;
+  --color-purple-100: #190E33;
+
   /* FONT */
   --text-h1: 60px;
   --text-h2: 48px;

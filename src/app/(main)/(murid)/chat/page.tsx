@@ -65,7 +65,7 @@ const FIGMA_CHAT = {
   }
 };
 
-const API_URL = "https://lynx-ai-production.up.railway.app"; 
+const API_URL = "https://lynx-ai-up.railway.app"; 
 
 // --- CLOUDINARY CONFIG ---
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME 

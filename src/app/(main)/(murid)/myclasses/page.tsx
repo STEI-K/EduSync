@@ -1,8 +1,41 @@
 "use client";
 
+<<<<<<< HEAD
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import { Bell, Search, FileText, Plus } from "lucide-react";
+=======
+import { useEffect, useState, useRef } from "react";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc,
+  updateDoc,
+  serverTimestamp,
+  doc,
+  getDoc
+} from "firebase/firestore";
+import { toast } from "sonner"; 
+import { useRouter } from "next/navigation";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  Search, 
+  Bell, 
+  FileText, 
+  CheckCircle, 
+  AlertCircle, 
+  Loader2,
+  Plus
+} from "lucide-react";
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
 import { cn } from "@/lib/utils";
 
 type Attachment = { name: string; url: string };
@@ -29,6 +62,7 @@ type ClassCard = {
   illustration: "matdis" | "ddp" | "kalkulus";
 };
 
+<<<<<<< HEAD
 export default function MyAssignmentsHardcodedPage() {
   const data = useMemo(() => {
     const assignments: Assignment[] = [
@@ -131,6 +165,46 @@ export default function MyAssignmentsHardcodedPage() {
 
     return { assignments, classes };
   }, []);
+=======
+// 🆕 Interface untuk My Class
+interface ClassData {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  imageUrl?: string;
+  studentCount: number;
+  teacherName?: string;
+}
+
+export default function MyAssignmentsPage() {
+  const { user, loading: userLoading } = useUserProfile();
+  const router = useRouter();
+  
+  // State Assignments
+  const [assignments, setAssignments] = useState<AssignmentUI[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAssignment, setSelectedAssignment] = useState<AssignmentUI | null>(null);
+  const [filterStatus, setFilterStatus] = useState<"On Going" | "Submitted" | "Graded">("On Going");
+
+  // 🆕 State Classes
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+
+  // Ref untuk input file
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- 2. DATA FETCHING ASSIGNMENTS ---
+  useEffect(() => {
+    const fetchData = async () => {
+      // Tunggu user profile loaded
+      if (!user || !user.uid || !user.daftarKelas) {
+        if (!userLoading) setLoadingData(false);
+        return;
+      }
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
 
   const [filter, setFilter] = useState<Status>("On Going");
   const [search, setSearch] = useState("");
@@ -151,6 +225,7 @@ export default function MyAssignmentsHardcodedPage() {
     return data.assignments.find((a) => a.id === selectedId) || data.assignments[0];
   }, [data.assignments, selectedId]);
 
+<<<<<<< HEAD
   const COLOR = {
     bg: "bg-[#F6F7FB]",
     hero: "text-[#B8B6FF]",
@@ -158,9 +233,248 @@ export default function MyAssignmentsHardcodedPage() {
     panelShadow: "shadow-[0_18px_40px_rgba(0,0,0,0.08)]",
     olive: { active: "bg-[#80711A]", idle: "bg-[#B7A21F]" },
     blueBtn: "bg-[#3D5AFE] hover:bg-[#2F49E8]",
+=======
+          chaptersSnap.docs.forEach((chapterDoc) => {
+            const chapterData = chapterDoc.data();
+            
+            // 3. Loop Subchapters Array
+            if (chapterData.subchapters && Array.isArray(chapterData.subchapters)) {
+              chapterData.subchapters.forEach((sub: any) => {
+                
+                // 4. Loop Assignments Array
+                if (sub.assignments && Array.isArray(sub.assignments)) {
+                  sub.assignments.forEach((assign: AssignmentFromDB) => {
+                    
+                    // Filter: Hanya tampilkan jika status published (atau tidak ada status)
+                    if (assign.status === "published" || !assign.status) {
+                      
+                      // Convert single url string ke array object attachment agar UI rapi
+                      const attachmentsList: Attachment[] = assign.questionFileUrl 
+                        ? [{ name: "Material.pdf", url: assign.questionFileUrl, type: "file" }]
+                        : [];
+
+                      classAssignments.push({
+                        id: assign.id,
+                        classId: classId,
+                        className: className,
+                        title: assign.title,
+                        instructions: assign.description || "No instructions provided.",
+                        dueDate: assign.deadline || null,
+                        createdAt: assign.publishedAt || new Date().toISOString(),
+                        attachments: attachmentsList,
+                        points: 100, // Default score max
+                        submissionStatus: "On Going" // Default sebelum di-merge
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+          return classAssignments;
+        });
+
+        // Tunggu semua kelas selesai diloop
+        const nestedAssignmentsResult = (await Promise.all(assignmentsPromises)).flat();
+
+        // B. AMBIL DATA SUBMISSIONS (ROOT COLLECTION)
+        // Cukup satu query simpel ke root collection 'submissions' berdasarkan studentId
+        const qSubmissions = query(
+          collection(db, "submissions"),
+          where("studentId", "==", user.uid)
+        );
+        const snapSubmissions = await getDocs(qSubmissions);
+        const mySubmissions = snapSubmissions.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubmissionData));
+
+        // C. MERGE DATA (GABUNGKAN)
+        const finalData: AssignmentUI[] = nestedAssignmentsResult.map((assign) => {
+          // Cari apakah ada submission untuk assignmentId ini
+          const sub = mySubmissions.find((s) => s.assignmentId === assign.id);
+          
+          let status: "On Going" | "Submitted" | "Graded" = "On Going";
+          if (sub) {
+            status = sub.status === "GRADED" ? "Graded" : "Submitted";
+          }
+
+          return {
+            ...assign,
+            submissionStatus: status,
+            submissionId: sub?.id,
+            myScore: sub?.score,
+            submittedAt: sub?.submittedAt,
+            submittedFileName: sub?.fileName,
+            submittedFileUrl: sub?.fileUrl
+          };
+        });
+
+        // Sort by Deadline (Terdekat dulu)
+        finalData.sort((a, b) => {
+            const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+            const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+            return dateA - dateB;
+        });
+
+        setAssignments(finalData);
+        
+        // Auto-select logic
+        if (finalData.length > 0) {
+           // Coba pilih yang masih On Going dulu, kalau gak ada ambil yang pertama
+           const firstPriority = finalData.find(f => f.submissionStatus === "On Going") || finalData[0];
+           setSelectedAssignment(firstPriority);
+        }
+
+      } catch (error) {
+        console.error("Error fetching assignments:", error);
+        toast.error("Gagal memuat daftar tugas.");
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    if (!userLoading) {
+        fetchData();
+    }
+  }, [user, userLoading]);
+
+  // 🆕 DATA FETCHING CLASSES
+  useEffect(() => {
+    const fetchClasses = async () => {
+      if (!user || !user.daftarKelas) {
+        setLoadingClasses(false);
+        return;
+      }
+      
+      try {
+        // Loop setiap classId di daftarKelas user
+        const classesPromises = user.daftarKelas.map(async (classId: string) => {
+          const classRef = doc(db, 'classes', classId);
+          const classSnap = await getDoc(classRef);
+          
+          if (classSnap.exists()) {
+            return {
+              id: classSnap.id,
+              ...classSnap.data()
+            } as ClassData;
+          }
+          return null;
+        });
+
+        const results = await Promise.all(classesPromises);
+        const validClasses = results.filter((cls): cls is ClassData => cls !== null);
+        
+        setClasses(validClasses);
+      } catch (err) {
+        console.error("Gagal mengambil data kelas:", err);
+      } finally {
+        setLoadingClasses(false);
+      }
+    };
+
+    if (!userLoading) {
+      fetchClasses();
+    }
+  }, [user, userLoading]);
+
+  // --- 3. SUBMISSION LOGIC (ROOT COLLECTION + CHECK EXISTING) ---
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedAssignment || !user) return;
+
+    if (file.size > 10 * 1024 * 1024) { 
+      toast.error("File terlalu besar (Maks 10MB)");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Upload ke Cloudinary
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "");
+      
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) throw new Error("Cloudinary Config Missing");
+
+      const uploadRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+        { method: "POST", body: formData }
+      );
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.error?.message || "Gagal upload ke server");
+      }
+
+      const uploadData = await uploadRes.json();
+      const realFileUrl = uploadData.secure_url; 
+      
+      // 2. Cek apakah submission sudah ada (untuk Update) atau belum (untuk Create)
+      // Query ke ROOT collection 'submissions'
+      const qExisting = query(
+        collection(db, "submissions"),
+        where("assignmentId", "==", selectedAssignment.id),
+        where("studentId", "==", user.uid)
+      );
+      const existingSnap = await getDocs(qExisting);
+
+      let submissionDocId = "";
+
+      if (!existingSnap.empty) {
+        // CASE: UPDATE (Sudah pernah submit, ganti file)
+        const oldDoc = existingSnap.docs[0];
+        submissionDocId = oldDoc.id;
+        
+        await updateDoc(doc(db, "submissions", submissionDocId), {
+            fileUrl: realFileUrl,
+            fileName: file.name,
+            submittedAt: serverTimestamp(),
+            status: "SUBMITTED" // Reset status jadi submitted jika sebelumnya graded/late
+        });
+        toast.success("Submission updated successfully!");
+      } else {
+        // CASE: CREATE (Baru pertama kali submit)
+        const newSubmission: Omit<SubmissionData, 'id'> = {
+            assignmentId: selectedAssignment.id,
+            studentId: user.uid,
+            studentName: user.nama || "Student",
+            status: "SUBMITTED",
+            submittedAt: serverTimestamp(),
+            fileUrl: realFileUrl,
+            fileName: file.name
+        };
+        const docRef = await addDoc(collection(db, "submissions"), newSubmission);
+        submissionDocId = docRef.id;
+        toast.success("Assignment submitted successfully!");
+      }
+
+      // 3. Optimistic UI Update (Tanpa reload page)
+      const updatedAssignment: AssignmentUI = {
+        ...selectedAssignment,
+        submissionStatus: "Submitted",
+        submissionId: submissionDocId,
+        submittedFileName: file.name,
+        submittedFileUrl: realFileUrl,
+        submittedAt: new Date()
+      };
+
+      setAssignments(prev => 
+        prev.map(a => a.id === selectedAssignment.id ? updatedAssignment : a)
+      );
+      setSelectedAssignment(updatedAssignment);
+      setFilterStatus("Submitted");
+
+    } catch (error: any) {
+      console.error("Gagal submit:", error);
+      toast.error(`Error: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
   };
 
   return (
+<<<<<<< HEAD
     <div className={cn("min-h-screen", COLOR.bg)}>
       <div className="mx-20 px-6 py-10">
         {/* HERO + SEARCH */}
@@ -175,6 +489,71 @@ export default function MyAssignmentsHardcodedPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search Material"
+=======
+    <div className="min-h-screen bg-[#F8F9FC] p-6 md:p-12 font-sans">
+      
+      {/* ========== SECTION 1: MY ASSIGNMENTS ========== */}
+      <div className="flex flex-col gap-8 mb-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <h1 className="text-[42px] font-bold text-blue-base tracking-tight leading-none">
+                Let&rsquo;s Back On Track!
+            </h1>
+
+            <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="relative flex-1 md:w-[400px]">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input 
+                        placeholder="Search Material" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 py-6 rounded-[20px] bg-white border-none shadow-sm text-sm"
+                    />
+                </div>
+            </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between items-center mt-4">
+            <h2 className="text-2xl font-bold text-black">My Assignments</h2>
+            
+            <div className="flex gap-3 bg-transparent">
+                {(["On Going", "Submitted", "Graded"] as const).map((status) => (
+                    <button
+                        key={status}
+                        onClick={() => {
+                            setFilterStatus(status);
+                            const first = assignments.find(a => a.submissionStatus === status);
+                            setSelectedAssignment(first || null);
+                        }}
+                        className={cn(
+                            "px-6 py-2 rounded-full text-sm font-bold transition-all",
+                            filterStatus === status 
+                                ? "bg-[#80711A] text-white shadow-md" 
+                                : "bg-[#D4BB2B] text-white hover:bg-[#80711A]/80"
+                        )}
+                    >
+                        {status}
+                    </button>
+                ))}
+            </div>
+        </div>
+      </div>
+
+      {/* CONTENT GRID - ASSIGNMENTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-20">
+        
+        {/* LEFT COLUMN: LIST TUGAS */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          {filteredAssignments.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+                <FileText className="w-10 h-10 mx-auto mb-2 text-gray-300"/>
+                <p className="text-gray-400 text-sm">No assignments found</p>
+            </div>
+          ) : (
+            filteredAssignments.map((assign) => (
+              <div
+                key={assign.id}
+                onClick={() => setSelectedAssignment(assign)}
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
                 className={cn(
                   "h-11 w-full rounded-full bg-white border-none outline-none px-5 pr-12 text-sm",
                   COLOR.pillShadow
@@ -404,6 +783,113 @@ export default function MyAssignmentsHardcodedPage() {
         {/* bottom padding */}
         <div className="h-10" />
       </div>
+
+      {/* ========== SECTION 2: MY CLASS ========== */}
+      <div className="border-t-2 border-gray-200 pt-16 mt-16">
+        <div className="flex justify-between items-center mb-10">
+          <h2 className="text-2xl font-bold text-black">My Class</h2>
+        </div>
+
+        {loadingClasses ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-[12px]" />
+            ))}
+          </div>
+        ) : classes.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {classes.map((cls) => (
+              <div 
+                key={cls.id} 
+                onClick={() => router.push(`/class/${cls.id}`)}
+                className="rounded-[12px] px-7 py-8 shadow-sm hover:shadow-md hover:scale-105 transition-all bg-white group cursor-pointer relative overflow-hidden flex flex-col gap-5"
+              >
+                {/* Nama Kelas */}
+                <h3 className="text-sh3 font-semibold text-blue-base transition-colors line-clamp-1">
+                  {cls.name}
+                </h3>
+
+                {/* Logo Kelas */}
+                <div className="flex justify-center items-center">
+                  {cls.imageUrl ? (
+                    <img 
+                      src={cls.imageUrl} 
+                      alt="Class Logo" 
+                      className="w-20 h-20 rounded-[12px] object-cover border" 
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-[12px] bg-gray-100 flex items-center justify-center text-2xl">
+                      📚
+                    </div>
+                  )}
+                </div>
+
+                {/* Info Tambahan */}
+                <div className="text-center mt-2">
+                  <p className="text-xs text-gray-500 font-medium">
+                    Taught by {cls.teacherName || "Teacher"}
+                  </p>
+                </div>
+
+                {/* Enter Class Button */}
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2 mt-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/class/${cls.id}`);
+                  }}
+                >
+                  Enter Class
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+            <div className="w-20 h-20 bg-gray-50 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">
+              🎒
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Belum Ada Kelas
+            </h3>
+            <p className="text-gray-500 max-w-md mx-auto mb-6 text-sm">
+              Kamu belum bergabung ke kelas manapun. Dapatkan kode kelas dari gurumu!
+            </p>
+            <Button 
+              onClick={() => router.push('/dashboard-murid')} 
+              className="bg-blue-base hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg"
+            >
+              Kembali ke Dashboard
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
+<<<<<<< HEAD
+=======
+}
+
+function AssignmentsSkeleton() {
+    return (
+        <div className="min-h-screen bg-[#F8F9FC] p-6 md:p-12">
+            <div className="flex justify-between mb-10">
+                <Skeleton className="h-12w-64 rounded-xl" />
+<div className="flex gap-2">
+<Skeleton className="h-12 w-12 rounded-full" />
+</div>
+</div>
+<div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+<div className="md:col-span-4 space-y-4">
+{[1, 2, 3].map((i) => (
+<Skeleton key={i} className="h-32 w-full rounded-2xl" />
+))}
+</div>
+<div className="md:col-span-8">
+<Skeleton className="h-[600px] w-full rounded-[30px]" />
+</div>
+</div>
+</div>
+)
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
 }

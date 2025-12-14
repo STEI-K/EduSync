@@ -284,7 +284,11 @@ export default function DashboardMuridPage() {
         author: "Kalkulus 1 - Prof. Okky",
         publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
         excerpt:
+<<<<<<< HEAD
           "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+=======
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
         href: "#",
       },
       {
@@ -293,7 +297,11 @@ export default function DashboardMuridPage() {
         author: "Kalkulus 1 - Prof. Okky",
         publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
         excerpt:
+<<<<<<< HEAD
           "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+=======
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
         href: "#",
       },
       {
@@ -302,7 +310,11 @@ export default function DashboardMuridPage() {
         author: "Kalkulus 1 - Prof. Okky",
         publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
         excerpt:
+<<<<<<< HEAD
           "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+=======
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
         href: "#",
       },
     ];
@@ -441,6 +453,7 @@ export default function DashboardMuridPage() {
   // ---------- RENDER ----------
   return (
     <div className="min-h-screen bg-[#F3F6FF]">
+<<<<<<< HEAD
 
       {/* MAIN */}
       <main className="mx-20 px-6 py-8">
@@ -552,6 +565,120 @@ export default function DashboardMuridPage() {
               })}
             </div>
           </section>
+=======
+
+      {/* MAIN */}
+      <main className="mx-20 px-6 py-8">
+        {/* Welcome + Search + Bell */}
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex-1">
+            <h1 className="text-[42px] leading-tight font-extrabold bg-linear-to-r from-blue-20 via-blue-40 to-blue-base bg-clip-text text-transparent w-fit">
+              Welcome Again, {userProfile?.displayName || "Siswa"}!
+            </h1>
+          </div>
+
+          {/* Search + Bell */}
+          <div className="flex items-center gap-4 pt-2">
+            <div className="relative w-[340px] hidden sm:block">
+              <input
+                className="w-full h-11 rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.10)] px-5 pr-12 text-sm outline-none border border-transparent focus:border-[#3D5AFE]/30"
+                placeholder="Search Material"
+              />
+              <Search className="h-5 w-5 absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            </div>
+
+            <button
+              type="button"
+              className="h-11 w-11 rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex items-center justify-center"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-[#3D5AFE]" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Announcement + Calendar/Reminder row */}
+        <div className="mt-8 flex justify-between items-end">
+          <div className="flex flex-col">
+            {/* Chips */}
+            <div className="mt-4 flex flex-wrap gap-3 mb-4">
+              {classChips.map((c, idx) => {
+                const s = CHIP_STYLES[idx % CHIP_STYLES.length];
+                return (
+                  <button
+                    key={c.id}
+                    className={cn(
+                      "px-5 py-2 rounded-[8px] text-sh6 font-semibold shadow-sm",
+                      s.bg,
+                      s.text
+                    )}
+                    type="button"
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+            {/* LEFT: Latest Announcement */}
+            <section>
+              <h2 className="text-sh3 font-extrabold text-gray-900 mb-4">Latest Announcement</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {(loadingData ? [0, 1, 2] : [0, 1, 2]).map((i) => {
+                  const a = visualAnnouncements[i];
+                  return (
+                    <div
+                      key={loadingData ? `sk-ann-${i}` : a.id}
+                      className="bg-white rounded-2xl w-76 h-fit shadow-[0_16px_30px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden"
+                    >
+                      <div className="p-5">
+                        <h3 className="font-extrabold text-blue-100 text-sh6">
+                          {loadingData ? "Revisi Berkas TK2 Kalkulus" : a.title}
+                        </h3>
+
+                        <p className="mt-1  text-sh8 text-black">
+                          <span className="font-semibold text-blue-base">
+                            By {loadingData ? "Kalkulus 1 - Prof. Okky" : a.author}
+                          </span>
+                          {" | "}
+                          Published on{" "}
+                          {loadingData
+                            ? "09 Nov 2025 - 09:30"
+                            : a.publishedAt
+                            ? format(a.publishedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })
+                            : "—"}
+                        </p>
+
+                        <div className="mt-3 text-b7 leading-relaxed text-blue-100 whitespace-pre-line ml-5">
+                          {loadingData ? (
+                            <>
+                              Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut
+                              labore.
+                              {"\n\n"}
+                              Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut
+                              labore et dolore magna aliqua.
+                            </>
+                          ) : (
+                            a.excerpt
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="px-5 pb-5">
+                        <Link
+                          href={loadingData ? "#" : a.href || "#"}
+                          className="block w-full text-center rounded-[8px] bg-yellow-base text-yellow-90 font-normal text-b8 py-2.5 hover:brightness-95"
+                        >
+                          Lihat Selengkapnya
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
 
           {/* RIGHT: Calendar + Reminder */}
           <aside className="space-y-5">
@@ -567,7 +694,11 @@ export default function DashboardMuridPage() {
                   <ChevronLeft className="h-4 w-4 text-gray-700" />
                 </button>
 
+<<<<<<< HEAD
                 <div className="text-sm font-bold text-gray-900">
+=======
+                <div className="text-sh5 font-bold text-gray-900">
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
                   {format(monthCursor, "MMMM yyyy", { locale: indonesia })}
                 </div>
 
@@ -614,7 +745,11 @@ export default function DashboardMuridPage() {
             <div>
               <h3 className="text-sm font-extrabold text-gray-900 mb-3">Reminder</h3>
 
+<<<<<<< HEAD
               <div className="space-y-3">
+=======
+              <div className="space-y-3 flex flex-col items-between">
+>>>>>>> a700e47c5e99b63bbb6e456c3610284f48f317b3
                 {[
                   { title: "Submit TK2 Kalkulus", sub: "Due Date: Today 23:59" },
                   { title: "Submit TK2 Kalkulus", sub: "Due Date: Today 23:59" },

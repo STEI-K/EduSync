@@ -173,7 +173,7 @@ export default function DashboardGuru() {
               <div 
                 key={cls.id} 
                 // [BARU] Fungsi klik pindah halaman
-                onClick={() => router.push(`/class/${cls.id}`)}
+                onClick={() => router.push(`/manage-class/${cls.id}`)}
                 className="rounded-[12px] px-7 py-8 shadow-sm hover:shadow-md hover:scale-105 transition-all bg-white group cursor-pointer relative overflow-hidden flex flex-col gap-9"
               >
                 <h3 className="text-sh3 font-semibold text-blue-base transition-colors line-clamp-1">

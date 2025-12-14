@@ -38,8 +38,8 @@ export function AskLynxModal({ isOpen, onClose, onSuccess }: AskLynxModalProps) 
       const data = await res.json();
       
       const mockData = {
-        questionUrl: "https://res.cloudinary.com/demo/image/upload/ai_generated_question.pdf",
-        rubricUrl: "https://res.cloudinary.com/demo/image/upload/ai_generated_rubric.pdf"
+        questionUrl: data.soal_pdf_url,
+        rubricUrl: data.rubric_pdf_url
       };
 
       toast.success("✨ Magic happened! Tugas berhasil dibuat AI.");

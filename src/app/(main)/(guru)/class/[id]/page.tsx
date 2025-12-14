@@ -476,7 +476,7 @@ export default function ClassDetail() {
                     <div className="ml-14">
                       <p className="text-b7 text-blue-100">{item.content}</p>
                       {item.fileUrl && (
-                        <div className="flex justify-between items-center bg-white rounded-lg px-5 py-3 mt-4 border border-gray-100 shadow-sm w-full md:w-1/2">
+                        <div className="flex justify-between items-center bg-white rounded-lg px-5 py-3 mt-4 border border-gray-100 shadow-sm w-full">
                             <div className="flex items-center gap-3 overflow-hidden">
                               <Image src={"/pdf.png"} alt="pdf" width={40} height={40} className="w-8 h-8 shrink-0"/>
                               <p className="text-sm font-medium text-gray-700 truncate">

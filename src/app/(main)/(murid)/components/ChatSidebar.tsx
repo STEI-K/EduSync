@@ -1,23 +1,12 @@
 // src/app/(main)/(murid)/chat/components/ChatSidebar.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom'; 
-import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare, Trash2 } from 'lucide-react'; 
-import { cn } from '@/lib/utils';
-import Image from 'next/image';
-
-const STYLE = {
-  widthOpen: "md:w-[280px]",      
-  widthClosed: "md:w-[80px]",     
-  bgColor: "bg-white",            
-  borderColor: "border-gray-200", 
-  activeItemColor: "text-blue-600", 
-  inactiveItemColor: "text-gray-600 hover:text-blue-600 hover:bg-gray-50", 
-  newChatBtn: "bg-[#5D87FF] hover:bg-[#4570EA] text-white", 
-  fontTitle: "text-[18px]",       
-};
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 type ChatSession = {
   id: string;
@@ -32,7 +21,37 @@ type ChatSidebarProps = {
   currentSessionId: string;
   onSwitchSession: (id: string) => void;
   onCreateNewSession: () => void;
-  onDeleteSession: (id: string) => void; 
+  onDeleteSession: (id: string) => void;
+};
+
+const UI = {
+  // match screenshot
+  panel: "bg-white border-r border-gray-200",
+  openW: "w-[280px]",
+  closedW: "w-[72px]",
+
+  topPad: "pt-6",
+  sidePadOpen: "px-6",
+  sidePadClosed: "px-3",
+
+  title: "text-[14px] font-bold text-[#6AAFE8] leading-snug",
+  doorBtn: "h-10 w-10 rounded-xl hover:bg-gray-100 active:scale-[0.98] transition flex items-center justify-center",
+
+  newChat:
+    "mt-4 w-full h-10 rounded-xl bg-[#5D87FF] hover:bg-[#4B73E8] text-white font-semibold shadow-sm flex items-center justify-center gap-2",
+
+  sectionLabel: "mt-6 text-[14px] font-bold text-gray-900",
+  historyList: "mt-3 space-y-1 overflow-y-auto pr-1",
+  historyItem:
+    "w-full text-left text-[12px] text-[#3B82F6] hover:bg-[#F3F7FF] rounded-lg px-3 py-2 truncate transition",
+  historyActive: "bg-[#EAF3FF] text-[#2563EB]",
+
+  backWrap: "mt-auto pt-6 pb-6",
+  backBtn: "w-full justify-start gap-3 text-[#2563EB] hover:bg-[#F3F7FF] rounded-xl px-3",
+
+  // context menu
+  menu: "fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden py-1 w-44 animate-in fade-in zoom-in duration-150",
+  menuItem: "w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium transition-colors",
 };
 
 export function ChatSidebar({
@@ -42,11 +61,10 @@ export function ChatSidebar({
   currentSessionId,
   onSwitchSession,
   onCreateNewSession,
-  onDeleteSession
+  onDeleteSession,
 }: ChatSidebarProps) {
   const [isHovered, setIsHovered] = useState(false);
 
-  // State Context Menu
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     x: number;
@@ -58,12 +76,12 @@ export function ChatSidebar({
   useEffect(() => setMounted(true), []);
 
   const handleContextMenu = (e: React.MouseEvent, sessionId: string) => {
-    e.preventDefault(); 
+    e.preventDefault();
     setContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
-      sessionId: sessionId
+      sessionId,
     });
   };
 
@@ -75,104 +93,120 @@ export function ChatSidebar({
   };
 
   useEffect(() => {
-    const handleGlobalClick = () => setContextMenu({ ...contextMenu, visible: false });
+    const handleGlobalClick = () => setContextMenu((p) => ({ ...p, visible: false }));
     window.addEventListener("click", handleGlobalClick);
-    window.addEventListener("scroll", handleGlobalClick); 
+    window.addEventListener("scroll", handleGlobalClick);
     return () => {
       window.removeEventListener("click", handleGlobalClick);
       window.removeEventListener("scroll", handleGlobalClick);
     };
-  }, [contextMenu]);
+  }, []);
 
   return (
     <>
-      <aside 
+      <aside
         className={cn(
-            "flex flex-col border-r transition-all duration-300 ease-in-out h-full z-30 absolute md:static shadow-xl md:shadow-none rounded-none", // [FIXED] Explicit rounded-none
-            STYLE.bgColor,
-            STYLE.borderColor,
-            isOpen 
-              ? `w-[85vw] translate-x-0 ${STYLE.widthOpen}`
-              : `-translate-x-full md:translate-x-0 ${STYLE.widthClosed}`
+          "h-full flex flex-col shrink-0 transition-all duration-300 ease-in-out",
+          UI.panel,
+          isOpen ? UI.openW : UI.closedW
         )}
       >
-        <div className={cn("flex flex-col gap-4 h-full py-6 transition-all duration-300", isOpen ? "px-6" : "px-2 items-center")}>
-            
-            {/* HEADER */}
-            <div className={cn("flex items-center w-full mb-2 transition-all shrink-0", isOpen ? "justify-between" : "justify-center")}>
-                <div className={cn("flex flex-col overflow-hidden transition-all duration-300", isOpen ? "opacity-100 w-auto" : "opacity-0 w-0 h-0 hidden")}>
-                    <h2 className={cn("font-bold leading-tight bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent", STYLE.fontTitle)}>Link Your Thoughts</h2>
-                    <h2 className={cn("font-bold leading-tight bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 bg-clip-text text-transparent", STYLE.fontTitle)}>With Lynx</h2>
-                </div>
-                <button onClick={() => setIsOpen(!isOpen)} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} className="relative shrink-0 hover:scale-110 transition-transform active:scale-95">
-                    <div className="relative w-9 h-9">
-                        <Image src={isHovered ? "/door_hovered.svg" : "/door.svg"} alt="Toggle" fill className="object-contain"/>
-                    </div>
-                </button>
-            </div>
-
-            {/* NEW CHAT BUTTON */}
-            {isOpen && (
-                <div className="shrink-0 w-full animate-in fade-in zoom-in duration-300">
-                    <Button onClick={onCreateNewSession} className={cn("w-full rounded-2xl h-11 shadow-sm font-semibold flex items-center gap-2 justify-center transition-all", STYLE.newChatBtn)}>
-                        <Plus className="w-5 h-5" /><span>New Chat</span>
-                    </Button>
-                </div>
+        <div className={cn("h-full flex flex-col", UI.topPad, isOpen ? UI.sidePadOpen : UI.sidePadClosed)}>
+          {/* TOP HEADER */}
+          <div className={cn("flex items-start justify-between")}>
+            {isOpen ? (
+              <div className="flex flex-col">
+                <div className={UI.title}>Link Your Thoughts</div>
+                <div className={UI.title}>With Lynx</div>
+              </div>
+            ) : (
+              <div className="h-[34px]" />
             )}
 
-            {/* HISTORY LIST */}
-            <div className={cn("flex-1 overflow-y-auto pr-1 space-y-1 mt-4 custom-scrollbar w-full transition-all min-h-0", isOpen ? "opacity-100" : "opacity-0 hidden")}>
-                <h3 className="text-[10px] font-extrabold text-gray-400 mb-2 uppercase tracking-widest px-2">Recent History</h3>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              className={UI.doorBtn}
+              type="button"
+              aria-label="Toggle sidebar"
+              title="Toggle"
+            >
+              <div className="relative w-7 h-7">
+                <Image src={isHovered ? "/door_hovered.svg" : "/door.svg"} alt="Toggle" fill className="object-contain" />
+              </div>
+            </button>
+          </div>
+
+          {/* NEW CHAT */}
+          {isOpen && (
+            <Button onClick={onCreateNewSession} className={UI.newChat}>
+              <Plus className="w-5 h-5" />
+              New Chat
+            </Button>
+          )}
+
+          {/* HISTORY */}
+          {isOpen && (
+            <>
+              <div className={UI.sectionLabel}>Chat History</div>
+              <div className={cn(UI.historyList, "min-h-0 flex-1 custom-scrollbar")}>
                 {history.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2 opacity-60">
-                     <MessageSquare className="w-8 h-8 dashed" />
-                     <p className="text-xs text-center">Belum ada percakapan</p>
-                  </div>
+                  <div className="mt-3 text-[12px] text-gray-500 px-2">Belum ada percakapan</div>
                 )}
-                {history.map((session) => (
-                    <button 
-                        key={session.id}
-                        onClick={() => onSwitchSession(session.id)}
-                        onContextMenu={(e) => handleContextMenu(e, session.id)}
-                        className={cn("w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-all truncate flex items-center gap-3 relative group", currentSessionId === session.id ? STYLE.activeItemColor : STYLE.inactiveItemColor)}
-                    > 
-                        <span className="truncate flex-1">{session.title}</span>
-                        {currentSessionId === session.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
-                    </button>
-                ))}
-            </div>
 
-            {/* BACK BUTTON */}
-            {isOpen && (
-                <div className="pt-3 w-full border-t border-gray-100 shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <Button variant="ghost" className="w-full justify-start text-gray-500 hover:text-blue-600 hover:bg-blue-50 gap-3 px-2" onClick={() => window.history.back()}>
-                        <div className="relative w-5 h-5">
-                            <Image src="/back_chat.svg" alt="Back" fill className="object-contain" />
-                        </div>
-                        <span className="font-medium">Kembali</span>
-                    </Button>
-                </div>
-            )}
+                {history.map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => onSwitchSession(session.id)}
+                    onContextMenu={(e) => handleContextMenu(e, session.id)}
+                    className={cn(
+                      UI.historyItem,
+                      currentSessionId === session.id && UI.historyActive
+                    )}
+                    type="button"
+                    title={session.title}
+                  >
+                    {session.title}
+                  </button>
+                ))}
+              </div>
+
+              {/* BACK */}
+              <div className={UI.backWrap}>
+                <Button
+                  variant="ghost"
+                  className={UI.backBtn}
+                  onClick={() => window.history.back()}
+                  type="button"
+                >
+                  <div className="relative w-5 h-5">
+                    <Image src="/back_chat.svg" alt="Back" fill className="object-contain" />
+                  </div>
+                  Back
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
-      {/* CONTEXT MENU */}
-      {mounted && contextMenu.visible && createPortal(
-        <div 
-          className="fixed z-[9999] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden py-1 w-40 animate-in fade-in zoom-in duration-150"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()} 
-        >
-          <button 
-            onClick={handleDeleteClick}
-            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium transition-colors"
+      {/* CONTEXT MENU (logic tetap) */}
+      {mounted &&
+        contextMenu.visible &&
+        createPortal(
+          <div
+            className={UI.menu}
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Trash2 className="w-4 h-4" />
-            Delete Chat
-          </button>
-        </div>,
-        document.body
-      )}
+            <button onClick={handleDeleteClick} className={UI.menuItem} type="button">
+              <Trash2 className="w-4 h-4" />
+              Delete Chat
+            </button>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

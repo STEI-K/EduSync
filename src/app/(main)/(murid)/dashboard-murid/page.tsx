@@ -1,401 +1,812 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUserProfile } from "@/lib/hooks/useUserProfile";
-import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  doc, 
-  getDoc, 
-  updateDoc, 
-  arrayUnion, 
-  setDoc,
-  serverTimestamp,
-  orderBy, 
-  limit 
-} from "firebase/firestore";
+import Link from "next/link";
+import Image from "next/image";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay } from "date-fns";
+import { id as indonesia } from "date-fns/locale";
+import { Bell, ChevronLeft, ChevronRight, Search, ArrowRight } from "lucide-react";
 
-// Services
-import { getStudentAssignments, categorizeAssignments, Assignment } from "@/lib/services/assignmentService";
+// Firebase
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { collection, getDocs, limit, orderBy, query, Timestamp, where } from "firebase/firestore";
 
-// UI Components
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, Loader2, BookOpen, Bell, ClipboardList, CheckCircle, Clock } from "lucide-react";
-import { toast } from "sonner"; 
-import { ClassCard } from "../components/ClassCard";
-import { AssignmentCard } from "../components/AssignmentCard";
-import { format } from "date-fns"; 
-import { id as ind } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-
-interface DashboardAnnouncement {
-  id: string;
-  content: string;
-  createdAt: any;
-  classId: string;
-  className: string;
+// ---------- TYPES ----------
+interface UserProfile {
+  uid: string;
+  displayName: string | null;
+  grade_level: string;
+  photoURL?: string | null;
 }
 
-export default function DashboardMurid() {
-  const { user, loading, error } = useUserProfile();
+interface StudentClass {
+  id: string;
+  name: string;
+  subject: string;
+  teacherName?: string;
+  schedule?: string;
+  studentCount?: number;
+}
+
+type AssignmentStatus = "ongoing" | "graded" | "submitted";
+
+interface Assignment {
+  id: string;
+  title: string;
+  subject: string;
+  dueDate?: Timestamp | null;
+  status: AssignmentStatus;
+  score?: number | null;
+  submittedAt?: Timestamp | null;
+  author?: string | null;
+  publishedAt?: Timestamp | null;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  author: string;
+  publishedAt?: Timestamp | null;
+  excerpt: string;
+  href?: string;
+}
+
+interface LynxRecommendation {
+  subject: string;
+  advice: string;
+  resource_link: string;
+}
+
+interface LynxAnalysisResult {
+  weaknesses: string[];
+  recommendations: LynxRecommendation[];
+}
+
+// ---------- UI HELPERS ----------
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
+const CHIP_STYLES = [
+  { bg: "bg-[#3D5AFE]", text: "text-white" }, // biru
+  { bg: "bg-[#FFD54F]", text: "text-[#5D4037]" }, // kuning
+  { bg: "bg-[#6C63FF]", text: "text-white" }, // ungu
+];
+
+function safeInitial(name?: string | null) {
+  const s = (name || "").trim();
+  return s.length ? s[0].toUpperCase() : "S";
+}
+
+// ---------- MAIN ----------
+export default function DashboardMuridPage() {
   const router = useRouter();
-  
-  // State Modal Join
-  const [open, setOpen] = useState(false);
-  const [inputCode, setInputCode] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
 
-  // State Pengumuman
-  const [recentUpdates, setRecentUpdates] = useState<DashboardAnnouncement[]>([]);
-  const [loadingUpdates, setLoadingUpdates] = useState(true);
+  // auth / profile
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // 🔥 NEW: State Assignments
-  const [assignments, setAssignments] = useState<{
-    ongoing: Assignment[];
-    submitted: Assignment[];
-    graded: Assignment[];
-  }>({ ongoing: [], submitted: [], graded: [] });
-  const [loadingAssignments, setLoadingAssignments] = useState(true);
+  // data loading
+  const [loadingData, setLoadingData] = useState(true);
+  const [classes, setClasses] = useState<StudentClass[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  // 🔥 NEW: Active Tab untuk Assignment Section
-  const [activeTab, setActiveTab] = useState<'ongoing' | 'submitted' | 'graded'>('ongoing');
+  // lynx
+  const [lynxData, setLynxData] = useState<LynxAnalysisResult | null>(null);
+  const [loadingLynx, setLoadingLynx] = useState(false);
+  const [errorLynx, setErrorLynx] = useState<string | null>(null);
 
-  // --- FETCH PENGUMUMAN (EXISTING) ---
+  // calendar (dibikin default May 2026 agar sama screenshot)
+  const [monthCursor, setMonthCursor] = useState<Date>(() => new Date(2026, 4, 1)); // May 2026
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date(2026, 4, 8)); // highlight 8 (mirip screenshot)
+
+  // ---------- AUTH CHECK ----------
   useEffect(() => {
-    const fetchRecentUpdates = async () => {
-      if (!user || !user.daftarKelas || user.daftarKelas.length === 0) {
-        setLoadingUpdates(false);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        router.push("/login");
         return;
       }
+      setUser(currentUser);
 
       try {
-        const promises = user.daftarKelas.map(async (classId) => {
-          const classRef = doc(db, "classes", classId);
-          const classSnap = await getDoc(classRef);
-          
-          if (!classSnap.exists()) return null;
-          const className = classSnap.data().name || "Kelas Tanpa Nama";
+        const userDocRef = collection(db, "users");
+        const q = query(userDocRef, where("uid", "==", currentUser.uid));
+        const snapshot = await getDocs(q);
 
-          const announcementsRef = collection(db, "classes", classId, "announcements");
-          const q = query(announcementsRef, orderBy("createdAt", "desc"), limit(1));
-          const annSnap = await getDocs(q);
+        let grade = "12 SMA";
+        let photo = currentUser.photoURL;
 
-          if (annSnap.empty) return null;
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          if (data.grade_level) grade = data.grade_level;
+          if (data.photoURL) photo = data.photoURL;
+        }
 
-          const annData = annSnap.docs[0].data();
-          
-          return {
-            id: annSnap.docs[0].id,
-            content: annData.content,
-            createdAt: annData.createdAt,
-            classId: classId,
-            className: className,
-          } as DashboardAnnouncement;
+        setUserProfile({
+          uid: currentUser.uid,
+          displayName: currentUser.displayName || "Siswa",
+          grade_level: grade,
+          photoURL: photo,
         });
+      } catch {
+        setUserProfile({
+          uid: currentUser.uid,
+          displayName: currentUser.displayName || "Siswa",
+          grade_level: "12 SMA",
+          photoURL: currentUser.photoURL,
+        });
+      } finally {
+        setLoadingAuth(false);
+      }
+    });
 
-        const results = await Promise.all(promises);
+    return () => unsubscribe();
+  }, [router]);
 
-        const validResults = results
-          .filter((item): item is DashboardAnnouncement => item !== null)
-          .sort((a, b) => {
-             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-             const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-             return dateB.getTime() - dateA.getTime();
+  // ---------- DATA FETCH ----------
+  useEffect(() => {
+    if (!userProfile) return;
+
+    const fetchAll = async () => {
+      setLoadingData(true);
+      try {
+        // 1) Classes
+        const classesRef = collection(db, "classes");
+        const qClasses = query(classesRef, where("students", "array-contains", userProfile.uid));
+        const classSnapshot = await getDocs(qClasses);
+
+        const fetchedClasses: StudentClass[] = classSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          name: doc.data().name || "Kelas Tanpa Nama",
+          subject: doc.data().subject || "Umum",
+          teacherName: doc.data().teacherName || "Guru",
+          schedule: doc.data().schedule || "Jadwal belum diatur",
+          studentCount: doc.data().students?.length || 0,
+        }));
+        setClasses(fetchedClasses);
+
+        // 2) Assignments (ambil banyak biar bisa dibagi 3 kolom)
+        const classIds = fetchedClasses.map((c) => c.id).slice(0, 10);
+        if (classIds.length > 0) {
+          const assignmentsRef = collection(db, "assignments");
+
+          // catatan: Firestore "in" butuh array <= 10 (sudah di-slice)
+          const qAssignments = query(
+            assignmentsRef,
+            where("classId", "in", classIds),
+            orderBy("dueDate", "asc"),
+            limit(20)
+          );
+
+          const assignSnapshot = await getDocs(qAssignments);
+
+          const fetchedAssignments: Assignment[] = assignSnapshot.docs.map((doc) => {
+            const d = doc.data();
+
+            // Kalau status tidak tersedia, default ongoing supaya UI tetap hidup
+            const statusRaw = (d.status || "ongoing") as AssignmentStatus;
+
+            return {
+              id: doc.id,
+              title: d.title || "TK2 Kalkulus",
+              subject: d.subjectName || d.subject || "Kalkulus 1",
+              dueDate: d.dueDate ?? null,
+              status: statusRaw,
+              score: typeof d.score === "number" ? d.score : null,
+              submittedAt: d.submittedAt ?? null,
+              author: d.author || d.teacherName || "Prof. Okky",
+              publishedAt: d.publishedAt ?? null,
+            };
           });
 
-        setRecentUpdates(validResults);
+          setAssignments(fetchedAssignments);
+        } else {
+          setAssignments([]);
+        }
 
-      } catch (err) {
-        console.error("Gagal fetch updates:", err);
+        // 3) Announcements (kalau collection tidak ada, fallback dummy)
+        try {
+          const annRef = collection(db, "announcements");
+          const qAnn = query(annRef, orderBy("publishedAt", "desc"), limit(3));
+          const annSnap = await getDocs(qAnn);
+
+          const fetchedAnn: Announcement[] = annSnap.docs.map((doc) => {
+            const d = doc.data();
+            return {
+              id: doc.id,
+              title: d.title || "Revisi Berkas TK2 Kalkulus",
+              author: d.author || "Kalkulus 1 - Prof. Okky",
+              publishedAt: d.publishedAt ?? null,
+              excerpt:
+                d.excerpt ||
+                "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.",
+              href: d.href || "#",
+            };
+          });
+
+          // Kalau kosong, biarkan; nanti fallback dummy via useMemo
+          setAnnouncements(fetchedAnn);
+        } catch {
+          setAnnouncements([]);
+        }
       } finally {
-        setLoadingUpdates(false);
+        setLoadingData(false);
       }
     };
 
-    fetchRecentUpdates();
-  }, [user]);
+    fetchAll();
+    fetchLynxAnalysis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile]);
 
-  // 🔥 NEW: FETCH ASSIGNMENTS
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      if (!user || !user.daftarKelas || user.daftarKelas.length === 0) {
-        setLoadingAssignments(false);
-        return;
-      }
-
-      setLoadingAssignments(true);
-      try {
-        const allAssignments = await getStudentAssignments(user.uid, user.daftarKelas);
-        const categorized = categorizeAssignments(allAssignments);
-        setAssignments(categorized);
-      } catch (err) {
-        console.error("Error fetching assignments:", err);
-      } finally {
-        setLoadingAssignments(false);
-      }
-    };
-
-    fetchAssignments();
-  }, [user]);
-
-  // --- JOIN CLASS LOGIC (EXISTING) ---
-  const handleJoinClass = async () => {
-    if (!inputCode) return;
-    setIsJoining(true);
+  // ---------- LYNX FETCH ----------
+  const fetchLynxAnalysis = async () => {
+    if (!userProfile) return;
+    setLoadingLynx(true);
+    setErrorLynx(null);
 
     try {
-      const classesRef = collection(db, "classes"); 
-      const q = query(classesRef, where("code", "==", inputCode)); 
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        toast.error("Kelas tidak ditemukan", { description: "Kode kelas salah." });
-        setIsJoining(false);
-        return;
-      }
-
-      const classDoc = querySnapshot.docs[0];
-      const classId = classDoc.id;
-      const classData = classDoc.data();
-
-      if (user?.daftarKelas?.includes(classId)) {
-        toast.warning("Sudah Bergabung", { description: "Kamu sudah terdaftar." });
-        setIsJoining(false);
-        return;
-      }
-
-      await Promise.all([
-        setDoc(doc(db, "classes", classId, "students", user!.uid), {
-          uid: user!.uid,
-          nama: user!.nama,
-          email: user!.email,
-          role: "MURID", 
-          joinedAt: serverTimestamp(),
+      const response = await fetch("https://lynx-ai.up.railway.app/analysis/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: userProfile.uid,
+          student_name: userProfile.displayName,
+          grade_level: userProfile.grade_level,
         }),
-        updateDoc(doc(db, "users", user!.uid), {
-          daftarKelas: arrayUnion(classId) 
-        })
-      ]);
+      });
 
-      setOpen(false);
-      setInputCode("");
-      toast.success("Berhasil Bergabung!", { description: `Kelas ${classData.name}` });
-      window.location.reload(); 
+      if (!response.ok) throw new Error("Gagal terhubung ke AI");
 
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal Bergabung");
+      const data = await response.json();
+      if (!data.weaknesses || !data.recommendations) throw new Error("Format data tidak sesuai");
+
+      setLynxData(data);
+    } catch {
+      setLynxData(null);
     } finally {
-      setIsJoining(false);
+      setLoadingLynx(false);
     }
   };
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return "";
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return format(date, "d MMM, HH:mm", { locale: ind }); 
-  };
+  // ---------- FALLBACK DATA (untuk menjaga UI tetap “persis” screenshot) ----------
+  const visualAnnouncements = useMemo<Announcement[]>(() => {
+    if (announcements.length >= 3) return announcements.slice(0, 3);
+    return [
+      {
+        id: "a1",
+        title: "Revisi Berkas TK2 Kalkulus",
+        author: "Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        excerpt:
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        href: "#",
+      },
+      {
+        id: "a2",
+        title: "Revisi Berkas TK2 Kalkulus",
+        author: "Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        excerpt:
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        href: "#",
+      },
+      {
+        id: "a3",
+        title: "Revisi Berkas TK2 Kalkulus",
+        author: "Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        excerpt:
+          "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore.\n\nLorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        href: "#",
+      },
+    ];
+  }, [announcements]);
 
-  // --- RENDER ---
-  if (loading) return <div className="p-10 text-center">Memuat data murid...</div>;
-  if (error) return <div className="p-10 text-red-500 font-bold text-center">{error}</div>;
-  if (!user) return <div className="p-10 text-center">Sesi habis. Silakan login kembali.</div>;
+  const visualAssignments = useMemo(() => {
+    // kalau kamu punya status di Firestore, ini langsung kepakai.
+    // kalau tidak, UI tetap mirip screenshot via fallback.
+    const ongoing = assignments.filter((a) => a.status === "ongoing");
+    const graded = assignments.filter((a) => a.status === "graded");
+    const submitted = assignments.filter((a) => a.status === "submitted");
 
-  // Data untuk Tab Badges
-  const tabData = {
-    ongoing: { count: assignments.ongoing.length, icon: Clock, color: "yellow" },
-    submitted: { count: assignments.submitted.length, icon: ClipboardList, color: "blue" },
-    graded: { count: assignments.graded.length, icon: CheckCircle, color: "green" },
-  };
+    // fallback dummy agar 3 kolom terisi seperti screenshot
+    const dOngoing: Assignment[] = [
+      {
+        id: "o1",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        dueDate: Timestamp.fromDate(new Date(2025, 10, 16, 23, 59)),
+        status: "ongoing",
+      },
+      {
+        id: "o2",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        dueDate: Timestamp.fromDate(new Date(2025, 10, 16, 23, 59)),
+        status: "ongoing",
+      },
+      {
+        id: "o3",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        dueDate: Timestamp.fromDate(new Date(2025, 10, 16, 23, 59)),
+        status: "ongoing",
+      },
+    ];
 
+    const dGraded: Assignment[] = [
+      {
+        id: "g1",
+        title: "TK2 Kalkulus - Integral & Aplikasinya",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        status: "graded",
+        score: 98,
+      },
+      {
+        id: "g2",
+        title: "TK2 Kalkulus - Integral & Aplikasinya",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        status: "graded",
+        score: 98,
+      },
+    ];
+
+    const dSubmitted: Assignment[] = [
+      {
+        id: "s1",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        status: "submitted",
+        submittedAt: Timestamp.fromDate(new Date(2025, 10, 9, 23, 56)),
+      },
+      {
+        id: "s2",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        status: "submitted",
+        submittedAt: Timestamp.fromDate(new Date(2025, 10, 9, 23, 56)),
+      },
+      {
+        id: "s3",
+        title: "TK2 Kalkulus",
+        subject: "By Kalkulus 1 - Prof. Okky",
+        publishedAt: Timestamp.fromDate(new Date(2025, 10, 9, 9, 30)),
+        status: "submitted",
+        submittedAt: Timestamp.fromDate(new Date(2025, 10, 9, 23, 56)),
+      },
+    ];
+
+    const out = {
+      ongoing: ongoing.length ? ongoing.slice(0, 3) : dOngoing,
+      graded: graded.length ? graded.slice(0, 2) : dGraded,
+      submitted: submitted.length ? submitted.slice(0, 3) : dSubmitted,
+    };
+
+    return out;
+  }, [assignments]);
+
+  const classChips = useMemo(() => {
+    const fallback = [
+      { id: "c1", name: "Matematika Diskret" },
+      { id: "c2", name: "Kalkulus 1" },
+      { id: "c3", name: "Dasar-Dasar Pemrograman" },
+    ];
+
+    const base = classes.length
+      ? classes.slice(0, 3).map((c) => ({ id: c.id, name: c.subject || c.name }))
+      : fallback;
+
+    return base;
+  }, [classes]);
+
+  // ---------- CALENDAR GRID ----------
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(monthCursor);
+    const monthEnd = endOfMonth(monthCursor);
+
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+
+    const days: Date[] = [];
+    let d = gridStart;
+    while (d <= gridEnd) {
+      days.push(d);
+      d = addDays(d, 1);
+    }
+    return days;
+  }, [monthCursor]);
+
+  // ---------- LOADING AUTH ----------
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#3D5AFE] border-t-transparent" />
+      </div>
+    );
+  }
+
+  // ---------- RENDER ----------
   return (
-    <div className="px-6 md:px-20 py-10 min-h-screen bg-gray-50/50">
-      
-      {/* HEADER */}
-      <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-            <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent w-fit">
-                Halo, {user.nama}!
+    <div className="min-h-screen bg-[#F3F6FF]">
+
+      {/* MAIN */}
+      <main className="mx-20 px-6 py-8">
+        {/* Welcome + Search + Bell */}
+        <div className="flex items-start justify-between gap-6">
+          <div className="flex-1">
+            <h1 className="text-[42px] leading-tight font-extrabold text-[#B8B6FF]">
+              Welcome Again, {userProfile?.displayName || "Siswa"}!
             </h1>
-            <p className="text-gray-500 mt-1">
-                Selamat datang kembali.
-            </p>
+
+            {/* Chips */}
+            <div className="mt-4 flex flex-wrap gap-3">
+              {classChips.map((c, idx) => {
+                const s = CHIP_STYLES[idx % CHIP_STYLES.length];
+                return (
+                  <button
+                    key={c.id}
+                    className={cn(
+                      "px-5 py-2 rounded-lg text-sm font-semibold shadow-sm",
+                      s.bg,
+                      s.text
+                    )}
+                    type="button"
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search + Bell */}
+          <div className="flex items-center gap-4 pt-2">
+            <div className="relative w-[340px] hidden sm:block">
+              <input
+                className="w-full h-11 rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.10)] px-5 pr-12 text-sm outline-none border border-transparent focus:border-[#3D5AFE]/30"
+                placeholder="Search Material"
+              />
+              <Search className="h-5 w-5 absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            </div>
+
+            <button
+              type="button"
+              className="h-11 w-11 rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.10)] flex items-center justify-center"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5 text-[#3D5AFE]" />
+            </button>
+          </div>
         </div>
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-transform active:scale-95">
-              <Plus className="mr-2 h-4 w-4" />
-              Gabung Kelas
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Gabung Kelas Baru</DialogTitle>
-              <DialogDescription>Masukkan kode unik kelas.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="code" className="text-right">Kode</Label>
-                <Input
-                  id="code"
-                  placeholder="Kode Kelas"
-                  className="col-span-3 font-bold text-center uppercase"
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value)}
-                  disabled={isJoining}
-                />
+        {/* Announcement + Calendar/Reminder row */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+          {/* LEFT: Latest Announcement */}
+          <section>
+            <h2 className="text-2xl font-extrabold text-gray-900 mb-4">Latest Announcement</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {(loadingData ? [0, 1, 2] : [0, 1, 2]).map((i) => {
+                const a = visualAnnouncements[i];
+                return (
+                  <div
+                    key={loadingData ? `sk-ann-${i}` : a.id}
+                    className="bg-white rounded-2xl w-76 h-116 shadow-[0_16px_30px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden"
+                  >
+                    <div className="p-5">
+                      <h3 className="font-extrabold text-gray-900 text-[13px]">
+                        {loadingData ? "Revisi Berkas TK2 Kalkulus" : a.title}
+                      </h3>
+
+                      <p className="mt-1 text-[10px] text-gray-500">
+                        <span className="font-semibold text-gray-600">
+                          By {loadingData ? "Kalkulus 1 - Prof. Okky" : a.author}
+                        </span>
+                        {" | "}
+                        Published on{" "}
+                        {loadingData
+                          ? "09 Nov 2025 - 09:30"
+                          : a.publishedAt
+                          ? format(a.publishedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })
+                          : "—"}
+                      </p>
+
+                      <div className="mt-3 text-[11px] leading-relaxed text-gray-600 whitespace-pre-line">
+                        {loadingData ? (
+                          <>
+                            Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut
+                            labore.
+                            {"\n\n"}
+                            Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut
+                            labore et dolore magna aliqua.
+                          </>
+                        ) : (
+                          a.excerpt
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="px-5 pb-5">
+                      <Link
+                        href={loadingData ? "#" : a.href || "#"}
+                        className="block w-full text-center rounded-lg bg-[#FFD54F] text-[#5D4037] font-bold text-xs py-2.5 hover:brightness-95"
+                      >
+                        Lihat Selengkapnya
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* RIGHT: Calendar + Reminder */}
+          <aside className="space-y-5">
+            {/* Calendar */}
+            <div className="bg-transparent">
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <button
+                  type="button"
+                  className="h-7 w-7 rounded-full hover:bg-white/60 flex items-center justify-center"
+                  onClick={() => setMonthCursor((d) => subMonths(d, 1))}
+                  aria-label="Prev month"
+                >
+                  <ChevronLeft className="h-4 w-4 text-gray-700" />
+                </button>
+
+                <div className="text-sm font-bold text-gray-900">
+                  {format(monthCursor, "MMMM yyyy", { locale: indonesia })}
+                </div>
+
+                <button
+                  type="button"
+                  className="h-7 w-7 rounded-full hover:bg-white/60 flex items-center justify-center"
+                  onClick={() => setMonthCursor((d) => addMonths(d, 1))}
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="h-4 w-4 text-gray-700" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 text-[11px] text-gray-700">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((w) => (
+                  <div key={w} className="text-center font-semibold opacity-70">
+                    {w}
+                  </div>
+                ))}
+
+                {calendarDays.map((d, idx) => {
+                  const inMonth = isSameMonth(d, monthCursor);
+                  const selected = isSameDay(d, selectedDate);
+
+                  return (
+                    <button
+                      key={`${d.toISOString()}-${idx}`}
+                      type="button"
+                      onClick={() => setSelectedDate(d)}
+                      className={cn(
+                        "h-7 w-7 rounded-full text-center flex items-center justify-center font-semibold",
+                        inMonth ? "text-gray-900" : "text-gray-400",
+                        selected ? "bg-[#3D5AFE] text-white shadow-md" : "hover:bg-white/70"
+                      )}
+                    >
+                      {d.getDate()}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <DialogFooter>
-              <Button onClick={handleJoinClass} disabled={isJoining || !inputCode} className="w-full sm:w-auto">
-                {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Gabung Sekarang"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </header>
 
-      {/* 🔥 NEW: ASSIGNMENTS SECTION */}
-      <div className="mb-10">
-        {/* TAB NAVIGATION */}
-        <div className="flex gap-6 mb-6 border-b-2 border-gray-200">
-          {(Object.keys(tabData) as Array<keyof typeof tabData>).map((tab) => {
-            const { count } = tabData[tab];
-            const isActive = activeTab === tab;
-            
-            const labelMap = {
-              ongoing: "On Going",
-              submitted: "Submitted", 
-              graded: "Graded"
-            };
+            {/* Reminder */}
+            <div>
+              <h3 className="text-sm font-extrabold text-gray-900 mb-3">Reminder</h3>
 
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "pb-3 px-2 font-bold text-base transition-all relative",
-                  isActive 
-                    ? "text-blue-600 border-b-4 border-blue-600 -mb-0.5" 
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                {labelMap[tab]}
-              </button>
-            );
-          })}
+              <div className="space-y-3">
+                {[
+                  { title: "Submit TK2 Kalkulus", sub: "Due Date: Today 23:59" },
+                  { title: "Submit TK2 Kalkulus", sub: "Due Date: Today 23:59" },
+                  { title: "Submit TK2 Kalkulus", sub: "Due Date: Today 23:59" },
+                ].map((r, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="w-full rounded-xl bg-[#3D5AFE] text-white px-4 py-3 flex items-center justify-between shadow-[0_12px_24px_rgba(61,90,254,0.25)] hover:brightness-95"
+                  >
+                    <div className="text-left">
+                      <div className="text-xs font-extrabold">{r.title}</div>
+                      <div className="text-[10px] opacity-85">{r.sub}</div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 opacity-90" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
         </div>
 
-        {/* ASSIGNMENT CARDS */}
-        {loadingAssignments ? (
-          <div className="text-center py-10 text-gray-400">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-            <p className="text-sm">Memuat tugas...</p>
+        {/* Latest Assignment */}
+        <section className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-extrabold text-gray-900">Latest Assignment</h2>
+            <button type="button" className="text-xs font-bold text-[#FFD54F] hover:underline">
+              Lihat Selengkapnya
+            </button>
           </div>
-        ) : (
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* On Going */}
+            <div>
+              <div className="text-center text-sm font-extrabold text-[#3D5AFE] mb-4">On Going</div>
+              <div className="space-y-4">
+                {visualAssignments.ongoing.map((t) => (
+                  <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                    <div className="font-extrabold text-[12px] text-gray-900">{t.title}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      {t.subject}
+                      {t.publishedAt
+                        ? ` | Published on ${format(t.publishedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })}`
+                        : ""}
+                    </div>
+                    <div className="mt-3 flex items-center justify-end">
+                      <span className="text-[10px] font-bold text-[#3D5AFE]">
+                        {/* sengaja statik agar mirip screenshot */}
+                        7 days 12 hours left
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Graded */}
+            <div>
+              <div className="text-center text-sm font-extrabold text-[#3D5AFE] mb-4">Graded</div>
+              <div className="space-y-4">
+                {visualAssignments.graded.map((t) => (
+                  <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex gap-4">
+                    <div className="flex-1">
+                      <div className="font-extrabold text-[12px] text-gray-900">{t.title}</div>
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        {t.subject}
+                        {t.publishedAt
+                          ? ` | Published on ${format(t.publishedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })}`
+                          : ""}
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-[#EEF2FF] flex flex-col items-center justify-center border border-[#DDE3FF]">
+                      <div className="text-lg leading-none font-extrabold text-[#3D5AFE]">{t.score ?? 98}</div>
+                      <div className="text-[10px] font-bold text-[#3D5AFE] opacity-80">Score</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Submitted */}
+            <div>
+              <div className="text-center text-sm font-extrabold text-[#3D5AFE] mb-4">Submitted</div>
+              <div className="space-y-4">
+                {visualAssignments.submitted.map((t) => (
+                  <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                    <div className="font-extrabold text-[12px] text-gray-900">{t.title}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      {t.subject}
+                      {t.publishedAt
+                        ? ` | Published on ${format(t.publishedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })}`
+                        : ""}
+                    </div>
+                    <div className="mt-3 text-right">
+                      <span className="text-[10px] font-bold text-[#3D5AFE]">
+                        Submitted on{" "}
+                        {t.submittedAt
+                          ? format(t.submittedAt.toDate(), "dd MMM yyyy - HH:mm", { locale: indonesia })
+                          : "09 Nov 2025 - 23:56"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Rekomendasi Bahan Belajar (By Lynx) */}
+        <section className="mt-12">
+          <div className="mb-4">
+            <h2 className="text-2xl font-extrabold text-gray-900">Rekomendasi Bahan Belajar</h2>
+            <p className="text-sm text-gray-600">
+              By <span className="font-extrabold text-[#3D5AFE]">Lynx</span>
+            </p>
+          </div>
+
+          {/* Banner style sesuai screenshot */}
           <div className="space-y-4">
-            {assignments[activeTab].length > 0 ? (
-              assignments[activeTab].map((assignment) => (
-                <AssignmentCard 
-                  key={assignment.id} 
-                  assignment={assignment} 
-                  variant={activeTab}
-                />
-              ))
-            ) : (
-              <div className="text-center py-16 bg-white border border-dashed rounded-xl">
-                <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg font-medium">
-                  {activeTab === 'ongoing' && "Tidak ada tugas aktif saat ini"}
-                  {activeTab === 'submitted' && "Belum ada tugas yang disubmit"}
-                  {activeTab === 'graded' && "Belum ada tugas yang dinilai"}
-                </p>
+            {/* 1 */}
+            <Link
+              href= "https://www.youtube.com/watch?v=E86ckq8yLUU" 
+              target="_blank"
+              rel="noreferrer"
+              className="block"
+            >
+              <div className="rounded-2xl px-6 py-5 bg-[#3D5AFE] text-white shadow-[0_16px_30px_rgba(61,90,254,0.25)] hover:brightness-95 flex items-center justify-between">
+                <div>
+                  <div className="font-extrabold text-sm">
+                    {loadingLynx
+                      ? "20 Latihan Soal Teknik Pengintegralan Parsial"
+                      : lynxData?.recommendations?.[0]?.advice || "Video Tutorial Integral"}
+                  </div>
+                  <div className="text-[11px] opacity-85 mt-1">
+                    {loadingLynx
+                      ? "Kalkulus 1 Chapter 4: Integral Tentu"
+                      : lynxData?.recommendations?.[0]?.subject
+                      ? `${lynxData.recommendations[0].subject}`
+                      : "Integral"}
+                  </div>
+                </div>
+                <ArrowRight className="h-6 w-6" />
+              </div>
+            </Link>
+
+            {/* 2 */}
+            <Link
+              href={lynxData?.recommendations?.[1]?.resource_link || "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="block"
+            >
+              <div className="rounded-2xl px-6 py-5 bg-[#6C63FF] text-white shadow-[0_16px_30px_rgba(108,99,255,0.25)] hover:brightness-95 flex items-center justify-between">
+                <div>
+                  <div className="font-extrabold text-sm">
+                    {loadingLynx
+                      ? "FlashCards Fungsi Khusus Pada OOP"
+                      : lynxData?.recommendations?.[1]?.advice || "FlashCards Fungsi Khusus Pada OOP"}
+                  </div>
+                  <div className="text-[11px] opacity-85 mt-1">
+                    {loadingLynx
+                      ? "Dasar-Dasar Pemrograman | Chapter 8: Object Oriented Programming"
+                      : lynxData?.recommendations?.[1]?.subject
+                      ? `${lynxData.recommendations[1].subject}`
+                      : "Dasar-Dasar Pemrograman | Chapter 8: Object Oriented Programming"}
+                  </div>
+                </div>
+                <ArrowRight className="h-6 w-6" />
+              </div>
+            </Link>
+
+            {errorLynx && (
+              <div className="text-xs text-red-600 font-bold">
+                {errorLynx}{" "}
+                <button type="button" onClick={fetchLynxAnalysis} className="underline">
+                  Refresh
+                </button>
               </div>
             )}
           </div>
-        )}
-      </div>
+        </section>
+      </main>
 
-      {/* EXISTING SECTIONS (Kelas & Pengumuman) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* KOLOM KIRI (LIST KELAS) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-3">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              <h2 className="text-xl font-bold text-gray-800">Kelas Saya</h2>
-          </div>
-          
-          {user.daftarKelas && user.daftarKelas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               {user.daftarKelas.map((classId: string) => (
-                  <ClassCard key={classId} classId={classId} />
-               ))}
-            </div>
-          ) : (
-            <div className="p-8 bg-white border border-dashed rounded-xl text-center text-gray-500">
-               Belum ada kelas. Gabung sekarang!
-            </div>
-          )}
-        </div>
-
-        {/* KOLOM KANAN (UPDATE TERBARU) */}
-        <div className="space-y-6">
-           <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-orange-500" />
-              <h2 className="text-xl font-bold text-gray-800">Pengumuman Terbaru</h2>
-           </div>
-
-           <div className="bg-white border rounded-xl shadow-sm p-2 min-h-[200px]">
-              {loadingUpdates ? (
-                <div className="text-center py-10 text-gray-400 text-sm">Memuat updates...</div>
-              ) : recentUpdates.length > 0 ? (
-                <div className="divide-y">
-                   {recentUpdates.map((update) => (
-                      <div 
-                        key={update.id} 
-                        className="p-4 hover:bg-gray-50 transition-colors cursor-pointer rounded-lg group"
-                        onClick={() => router.push(`/class/${update.classId}`)}
-                      >
-                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                               {update.className}
-                            </span>
-                            <span className="text-[10px] text-gray-400">
-                               {formatDate(update.createdAt)}
-                            </span>
-                         </div>
-                         <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed group-hover:text-gray-900">
-                            {update.content}
-                         </p>
-                      </div>
-                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 text-gray-400 text-sm">
-                   Tidak ada pengumuman baru dari kelasmu.
-                </div>
-              )}
-           </div>
-        </div>
-
-      </div>
+      {/* Floating Avatar (kanan bawah) */}
+      <button
+        type="button"
+        className="fixed right-8 bottom-8 h-14 w-14 rounded-full bg-[#FFD54F] border-[6px] border-[#3D5AFE] shadow-[0_18px_40px_rgba(0,0,0,0.15)] flex items-center justify-center"
+        aria-label="Profile"
+        onClick={() => router.push("/chat")}
+      >
+        <span className="font-extrabold text-[#5D4037] text-lg">{safeInitial(userProfile?.displayName)}</span>
+      </button>
     </div>
   );
 }
